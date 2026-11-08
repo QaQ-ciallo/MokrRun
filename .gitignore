@@ -1,0 +1,29 @@
+# build artifacts
+build/
+*.apk
+*.ap_
+*.dex
+*.class
+*.zip
+
+# signing material (never commit)
+*.jks
+*.keystore
+*.p12
+
+# generated at build time
+app/src/main/java/com/dsh/mokr/BuildConfigTag.java
+
+# ide / os
+.idea/
+.gradle/
+*.iml
+local.properties
+.DS_Store
+Thumbs.db
+
+# dev scratch files
+patch_*.py
+inspect*.py
+tmp_*
+*.log
