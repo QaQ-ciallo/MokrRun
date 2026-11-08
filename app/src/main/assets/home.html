@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="stylesheet" href="leaflet.css" />
+<style>
+  html, body, #map { height: 100%; margin: 0; padding: 0; background: #eef0f4; }
+  .locate-btn {
+    position: absolute; right: 10px; bottom: 10px; z-index: 500;
+    width: 40px; height: 40px; border-radius: 20px;
+    background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #3482ff; cursor: pointer; user-select: none;
+  }
+  .hint {
+    position: absolute; left: 10px; top: 10px; z-index: 500;
+    background: rgba(0,0,0,.55); color: #fff; font-size: 11px;
+    padding: 4px 8px; border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="hint" id="hint">未设置起点</div>
+<div class="locate-btn" id="locate">◎</div>
+
+<script src="leaflet.js"></script>
+<script>
+var map = L.map('map', { zoomControl: false, attributionControl: false })
+           .setView([39.908700, 116.397500], 17);
+
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+  subdomains: ['1','2','3','4'], maxZoom: 19, minZoom: 3
+}).addTo(map);
+
+var originMarker = null;
+var pointMarker = null;
+var line = null;
+var anchor = null;      // 定位/居中用的坐标
+var wps = [];           // 途经点
+
+function clearLayers() {
+  if (originMarker) { map.removeLayer(originMarker); originMarker = null; }
+  if (pointMarker)  { map.removeLayer(pointMarker);  pointMarker = null; }
+  if (line)         { map.removeLayer(line);         line = null; }
+}
+
+function draw(origin, points) {
+  clearLayers();
+  var all = [];
+  if (origin) {
+    originMarker = L.circleMarker([origin[0], origin[1]], {
+      radius: 8, color: '#fff', weight: 3, fillColor: '#12B76A', fillOpacity: 1
+    }).addTo(map);
+    all.push([origin[0], origin[1]]);
+  }
+  for (var i = 0; i < points.length; i++) {
+    all.push([points[i][0], points[i][1]]);
+  }
+  if (all.length > 1) {
+    line = L.polyline(all, { color: '#3482ff', weight: 4, opacity: .9 }).addTo(map);
+  }
+  if (origin) {
+    anchor = [origin[0], origin[1]];
+    document.getElementById('hint').textContent = points.length
+      ? ('起点 + ' + points.length + ' 个途经点')
+      : '已设起点，还没画路线';
+  } else {
+    document.getElementById('hint').textContent = '未设置起点';
+  }
+}
+
+/* 由原生调用 */
+window.setData = function (originLat, originLon, wpsJson, curLat, curLon) {
+  var origin = null;
+  if (originLat !== 0 && originLon !== 0) origin = [originLat, originLon];
+  wps = [];
+  if (wpsJson && wpsJson.length > 2) {
+    try {
+      var arr = JSON.parse(wpsJson);
+      for (var i = 0; i < arr.length; i++) wps.push([arr[i].lat, arr[i].lng]);
+    } catch (e) {}
+  }
+  draw(origin, wps);
+  if (!anchor && curLat && curLon) anchor = [curLat, curLon];
+  if (anchor) map.setView(anchor, 17);
+};
+
+document.getElementById('locate').onclick = function () {
+  // 让原生重新取一次定位，再回灌给地图
+  if (window.Native && Native.requestLocation) {
+    Native.requestLocation();
+  }
+  if (anchor) map.setView(anchor, 17);
+};
+</script>
+</body>
+</html>

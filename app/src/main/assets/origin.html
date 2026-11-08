@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="stylesheet" href="leaflet.css" />
+<style>
+  html, body, #map { height: 100%; margin: 0; padding: 0; background: #eef0f4; }
+  .locate-btn {
+    position: absolute; right: 14px; bottom: 24px; z-index: 600;
+    width: 44px; height: 44px; border-radius: 22px;
+    background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.28);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #3482ff; user-select: none;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="locate-btn" id="locate">◎</div>
+
+<script src="leaflet.js"></script>
+<script>
+var map = L.map('map', { zoomControl: true, attributionControl: false })
+           .setView([39.908700, 116.397500], 17);
+
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+  subdomains: ['1','2','3','4'], maxZoom: 19, minZoom: 3
+}).addTo(map);
+
+var reporting = false;
+
+function report() {
+  var c = map.getCenter();
+  if (window.Native && Native.onCenter) {
+    Native.onCenter(c.lat, c.lng);
+  }
+}
+
+map.on('moveend', report);
+
+/* 初始加载也回传一次，否则原生拿不到起点坐标 */
+map.whenReady(function () {
+  setTimeout(report, 200);
+});
+
+/* 原生调用：把地图移到指定坐标 */
+window.setCenter = function (lat, lon) {
+  map.setView([lat, lon], 17);
+  report();
+};
+
+document.getElementById('locate').onclick = function () {
+  if (window.Native && Native.requestLocation) Native.requestLocation();
+};
+
+/* 原生调用：取当前中心（会通过 onCenter 回传） */
+window.requestCenter = function () {
+  report();
+};
+</script>
+</body>
+</html>

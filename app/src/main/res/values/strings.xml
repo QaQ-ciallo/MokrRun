@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">随心跑</string>
+    <string name="module_description">体适能专用：路线模拟 · 步频仿真 · 检测绕过</string>
+    <string name="tagline">体适能 · 阳光跑</string>
+    <string name="section_status">模块状态</string>
+    <string name="section_routes">路线</string>
+    <string name="section_params">参数</string>
+    <string name="status_active">已注入</string>
+    <string name="status_inactive">未激活</string>
+    <string name="status_hint">在 LSPosed 中启用并勾选「体适能」后重启应用生效</string>
+    <string name="new_route">新建路线</string>
+    <string name="new_route_desc">在地图上绘制要模拟的轨迹</string>
+    <string name="speed">目标速度</string>
+    <string name="cadence">步频上限</string>
+    <string name="stride">步长</string>
+    <string name="anti_detect">检测绕过</string>
+</resources>

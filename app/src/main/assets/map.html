@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<link rel="stylesheet" href="leaflet.css" />
+<style>
+  html, body, #map { height: 100%; margin: 0; padding: 0; }
+  #hud {
+    position: absolute; left: 10px; top: 10px; z-index: 600;
+    background: rgba(0,0,0,.62); color: #fff; padding: 7px 11px;
+    border-radius: 10px; font-size: 12px; line-height: 1.5;
+  }
+  .locate-btn {
+    position: absolute; right: 12px; bottom: 96px; z-index: 600;
+    width: 46px; height: 46px; border-radius: 23px;
+    background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px; color: #3482ff; user-select: none;
+  }
+  .bar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 600;
+    display: flex; gap: 8px; padding: 10px 12px 22px;
+    background: linear-gradient(rgba(255,255,255,0), rgba(255,255,255,.96) 40%);
+  }
+  .bar div {
+    flex: 1; text-align: center; padding: 11px 0; border-radius: 14px;
+    font-size: 15px; font-weight: 600; background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.18);
+  }
+  #btnSave { background: #3482ff; color: #fff; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hud">起点未设定</div>
+<div class="locate-btn" id="locate">◎</div>
+<div class="bar">
+  <div id="btnUndo">撤销</div>
+  <div id="btnClear">清空</div>
+  <div id="btnSave">保存</div>
+</div>
+
+<script src="leaflet.js"></script>
+<script>
+var map = L.map('map', { zoomControl: false, attributionControl: false })
+           .setView([39.908700, 116.397500], 17);
+
+L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+  subdomains: ['1','2','3','4'], maxZoom: 19, minZoom: 3
+}).addTo(map);
+
+var origin = null;     // [lat, lng]
+var pts = [];          // [{lat,lng}, ...] 途经点
+var originMarker = null;
+var markers = [];
+var line = null;
+
+function fmt(m) { return m >= 1000 ? (m/1000).toFixed(2) + ' km' : Math.round(m) + ' m'; }
+
+function haversine(a, b) {
+  var R = 6371000, toRad = Math.PI/180;
+  var dLat = (b[0]-a[0])*toRad, dLon = (b[1]-a[1])*toRad;
+  var s = Math.sin(dLat/2)*Math.sin(dLat/2) +
+          Math.cos(a[0]*toRad)*Math.cos(b[0]*toRad)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+
+function total() {
+  var all = [];
+  if (origin) all.push(origin);
+  for (var i = 0; i < pts.length; i++) all.push([pts[i].lat, pts[i].lng]);
+  var d = 0;
+  for (var i = 1; i < all.length; i++) d += haversine(all[i-1], all[i]);
+  return d;
+}
+
+function redraw() {
+  if (originMarker) { map.removeLayer(originMarker); originMarker = null; }
+  markers.forEach(function(m){ map.removeLayer(m); });
+  markers = [];
+  if (line) { map.removeLayer(line); line = null; }
+
+  var all = [];
+  if (origin) {
+    originMarker = L.circleMarker(origin, {
+      radius: 9, color: '#fff', weight: 3, fillColor: '#12B76A', fillOpacity: 1
+    }).addTo(map).bindTooltip('起点', {permanent: false});
+    all.push(origin);
+  }
+  for (var i = 0; i < pts.length; i++) {
+    var c = [pts[i].lat, pts[i].lng];
+    all.push(c);
+    markers.push(L.circleMarker(c, {
+      radius: 5, color: '#fff', weight: 2, fillColor: '#3482ff', fillOpacity: 1
+    }).addTo(map));
+  }
+  if (all.length > 1) {
+    line = L.polyline(all, { color: '#3482ff', weight: 5, opacity: .92 }).addTo(map);
+  }
+  document.getElementById('hud').innerHTML =
+    (origin ? '起点已定' : '起点未设定') + ' · ' + pts.length + ' 个途经点<br>' + fmt(total());
+}
+
+map.on('click', function (e) {
+  pts.push({ lat: +e.latlng.lat.toFixed(7), lng: +e.latlng.lng.toFixed(7) });
+  redraw();
+});
+
+/* 原生调用：设置起点 */
+window.setOrigin = function (lat, lon) {
+  origin = [lat, lon];
+  map.setView(origin, 17);
+  redraw();
+};
+
+document.getElementById('btnUndo').onclick = function () {
+  if (pts.length) { pts.pop(); redraw(); }
+};
+document.getElementById('btnClear').onclick = function () {
+  pts = [];          // 只清途经点，起点保留
+  redraw();
+};
+document.getElementById('locate').onclick = function () {
+  if (origin) map.setView(origin, 17);
+};
+document.getElementById('btnSave').onclick = function () {
+  if (!origin) { alert('还没设定起点'); return; }
+  if (pts.length < 2) { alert('至少再加 2 个途经点'); return; }
+  var payload = {
+    origin: { lat: origin[0], lon: origin[1] },
+    points: pts,
+    distance: Math.round(total())
+  };
+  if (window.Native && Native.saveRoute) {
+    Native.saveRoute(JSON.stringify(payload));
+  }
+};
+
+redraw();
+</script>
+</body>
+</html>
