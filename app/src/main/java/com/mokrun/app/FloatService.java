@@ -48,6 +48,7 @@ public class FloatService extends Service {
     private LinearLayout btnToggle;
 
     private boolean running = false;
+    private boolean configPushed = false;
     private long startedAt = 0L;
     private long accumulated = 0L;
     private float speed = 3.0f;
@@ -252,14 +253,20 @@ public class FloatService extends Service {
             if (running) {
                 startedAt = System.currentTimeMillis();
                 Store.setRunMode(FloatService.this, 1);
-                // 关键：把配置随 Intent 送进体适能进程（零权限通道）
-                launchTargetWithConfig();
+                // 第一次开始需要把配置送进去；之后的继续只发命令
+                if (!configPushed) {
+                    launchTargetWithConfig();
+                    configPushed = true;
+                } else {
+                    sendCommand(1);
+                }
                 label.setText("暂停");
                 btnToggle.setBackgroundColor(0xFFB54708);
             } else {
                 accumulated += System.currentTimeMillis() - startedAt;
-                // 2 = paused; the fake position stays frozen where it is
+                // 2 = paused
                 Store.setRunMode(FloatService.this, 2);
+                sendCommand(2);
                 label.setText("继续");
                 btnToggle.setBackgroundColor(0xFF3482FF);
             }
@@ -267,6 +274,20 @@ public class FloatService extends Service {
         }
     }
 
+
+
+    /** 通过显式广播改运行状态，不切前台 */
+    private void sendCommand(int mode) {
+        try {
+            Intent i = new Intent("com.mokrun.app.CMD");
+            i.setPackage("com.bxkj.student");
+            i.putExtra("mode", mode);
+            sendBroadcast(i);
+            android.util.Log.i("MokrRunFloat", "command sent mode=" + mode);
+        } catch (Throwable t) {
+            android.util.Log.e("MokrRunFloat", "command failed", t);
+        }
+    }
 
     /** 把途经点 JSON 里的坐标批量反解成 WGS-84 */
     private String toWgsWaypoints(String json) {
@@ -291,25 +312,19 @@ public class FloatService extends Service {
     /** 带配置拉起体适能：SINGLE_TOP + REORDER_TO_FRONT，已在前台时只走 onNewIntent */
     private void launchTargetWithConfig() {
         try {
-            Intent i = getPackageManager().getLaunchIntentForPackage("com.bxkj.student");
-            if (i == null) {
-                Toast.makeText(this, "没找到体适能，请确认已安装", Toast.LENGTH_SHORT).show();
-                return;
-            }
+            // 不用 getLaunchIntentForPackage：HMA 之类的隐藏模块会把它挡掉，返回 null。
+            // 直接点名组件，绕过包管理器的可见性过滤。
+            Intent i = new Intent(Intent.ACTION_MAIN);
+            i.addCategory(Intent.CATEGORY_LAUNCHER);
+            i.setClassName("com.bxkj.student", "com.bxkj.student.splash.SplashActivity");
+            android.util.Log.i("MokrRunFloat", "resolved component explicitly");
             i.putExtra("mokr_cfg", ConfigSync.buildLine(this));
 
-            // 起点由 GCJ-02 反解回 WGS-84：体适能会自己再转一次，
-            // 传 GCJ-02 过去会导致双重转换、位置偏出几百米
+            // 直接下发 GCJ-02。目标应用的地图本身就是高德（GCJ-02）底图，
+            // 拿到坐标不做任何转换就往上打点，所以这里必须给 GCJ-02。
             double[] o = Store.origin(this);
-            if (o != null) {
-                double[] w = LocationHelper.gcj2wgs(o[0], o[1]);
-                i.putExtra("mokr_origin", w[0] + "," + w[1]);
-            } else {
-                i.putExtra("mokr_origin", "");
-            }
-
-            // 途经点同样反解
-            i.putExtra("mokr_route", toWgsWaypoints(ConfigSync.waypointsJson(this)));
+            i.putExtra("mokr_origin", o == null ? "" : (o[0] + "," + o[1]));
+            i.putExtra("mokr_route", ConfigSync.waypointsJson(this));
             i.putExtra("mokr_run", running ? 1 : 2);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -330,6 +345,7 @@ public class FloatService extends Service {
             accumulated = 0L;
             try {
                 Store.setRunMode(FloatService.this, 0);
+                sendCommand(0);
             } catch (Throwable ignored) {}
             stopSelf();
         }

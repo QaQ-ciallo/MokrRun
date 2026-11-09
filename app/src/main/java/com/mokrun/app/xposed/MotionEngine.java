@@ -46,6 +46,8 @@ public final class MotionEngine {
     private static volatile boolean sConfigLoaded = false;
 
     private static volatile int sMode = 0;
+    /** mode 是否由启动 Intent 指定过（provider 不可用时要靠它维持） */
+    private static volatile boolean sIntentMode = false;
     private static long sRunCheckedAt = 0L;
 
     private static Handler sHandler = null;
@@ -84,8 +86,20 @@ public final class MotionEngine {
         sRunCheckedAt = now;
         if (sCtx == null) return sMode;
         if (readProvider()) return sMode;
+        // provider 不可用（MIUI 拦跨应用 provider）：
+        // 若 mode 是 Intent 明确指定的，就保持不变，否则才归零
+        if (sIntentMode) return sMode;
         sMode = 0;
         return sMode;
+    }
+
+
+    /** 由广播通道调用：暂停 / 继续 / 结束 */
+    public static void setMode(int mode) {
+        sMode = mode;
+        sIntentMode = true;      // 一旦被明确设置，就由它主导，不再回落
+        sRunCheckedAt = System.currentTimeMillis();
+        XposedBridge.log(TAG + ": mode set to " + mode + " (via command)");
     }
 
     public static Location current() {
@@ -210,6 +224,7 @@ public final class MotionEngine {
         applyOriginRoute(origin, waypoints);
         applyConfigInner(sp, cd, st, waypoints);
         sMode = run;
+        sIntentMode = true;
         sRunCheckedAt = System.currentTimeMillis();
         sConfigLoaded = true;
         XposedBridge.log(TAG + ": applied from intent speed=" + sSpeed
@@ -307,6 +322,13 @@ public final class MotionEngine {
             tryRead();
         }
         if (!isRunningNow()) {
+            // 空闲时也要偶尔吭一声，否则 mode 不对的时候完全没有日志可查
+            if (sTicks % 80 == 0) {
+                XposedBridge.log(TAG + ": idle mode=" + sMode
+                        + " intentMode=" + sIntentMode
+                        + " sConfigLoaded=" + sConfigLoaded);
+            }
+            sTicks++;
             return;
         }
 
