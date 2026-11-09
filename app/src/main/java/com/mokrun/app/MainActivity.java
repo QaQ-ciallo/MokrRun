@@ -70,6 +70,7 @@ public class MainActivity extends Activity {
         setupHomeMap();
         KeepAliveService.start(this);
         ensureLocationPermission();
+        ensureNotificationPermission();
 
 
     }
@@ -150,11 +151,32 @@ public class MainActivity extends Activity {
         }, 1001);
     }
 
+    /**
+     * Android 13+ 的前台服务通知需要这个权限。
+     * 没有它 startForeground 在 MIUI 上会直接失败，悬浮窗根本起不来，
+     * 表现就是"点了没反应"。
+     */
+    private void ensureNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return;
+        if (checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1002);
+    }
+
     @Override
     public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
         super.onRequestPermissionsResult(req, perms, res);
         if (req == 1001) {
-            renderMap();   // 拿到权限后立刻刷新一次
+            renderMap();   // 拿到定位权限后刷新一次
+        }
+        if (req == 1002) {
+            if (res.length > 0 && res[0] != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this,
+                        "建议允许通知权限，否则悬浮窗可能无法启动",
+                        Toast.LENGTH_LONG).show();
+            }
         }
     }
 

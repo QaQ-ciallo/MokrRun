@@ -69,10 +69,22 @@ public class FloatService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        speed = Store.speed(this);
-        cadence = Store.cadence(this);
-        startForeground(NOTIF_ID, buildNotification());
-        showPanel();
+        android.util.Log.i("MokrRunFloat", "onCreate begin");
+        try {
+            speed = Store.speed(this);
+            cadence = Store.cadence(this);
+            android.util.Log.i("MokrRunFloat", "startForeground start");
+            startForeground(NOTIF_ID, buildNotification());
+            android.util.Log.i("MokrRunFloat", "startForeground ok");
+        } catch (Throwable t) {
+            android.util.Log.e("MokrRunFloat", "startForeground failed", t);
+        }
+        try {
+            showPanel();
+            android.util.Log.i("MokrRunFloat", "panel shown");
+        } catch (Throwable t) {
+            android.util.Log.e("MokrRunFloat", "showPanel failed", t);
+        }
         handler.post(ticker);
     }
 
@@ -302,7 +314,9 @@ public class FloatService extends Service {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP
                     | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            android.util.Log.i("MokrRunFloat", "launching target with config");
             startActivity(i);
+            android.util.Log.i("MokrRunFloat", "launch issued");
         } catch (Throwable t) {
             Toast.makeText(this, "拉起体适能失败：" + t, Toast.LENGTH_SHORT).show();
         }

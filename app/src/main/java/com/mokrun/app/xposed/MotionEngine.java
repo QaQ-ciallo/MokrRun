@@ -73,25 +73,18 @@ public final class MotionEngine {
         return readMode() == 1;
     }
 
+    /**
+     * 运行状态只从 ContentProvider 取。
+     * 拿不到就意味着「模块没在管理」，此时必须返回 0（不接管位置），
+     * 否则体适能会被上一轮的残留状态劫持。
+     */
     private static int readMode() {
         long now = System.currentTimeMillis();
         if (now - sRunCheckedAt < 400L) return sMode;
         sRunCheckedAt = now;
         if (sCtx == null) return sMode;
         if (readProvider()) return sMode;
-        try {
-            String v = android.provider.Settings.System.getString(
-                    sCtx.getContentResolver(), "mokr_run");
-            if (v == null) {
-                sMode = 0;
-            } else {
-                String t = v.trim();
-                if ("1".equals(t)) sMode = 1;
-                else if ("2".equals(t)) sMode = 2;
-                else sMode = 0;
-            }
-        } catch (Throwable ignored) {
-        }
+        sMode = 0;
         return sMode;
     }
 
@@ -178,57 +171,17 @@ public final class MotionEngine {
         }
     }
 
+    /**
+     * 只从 ContentProvider 读配置，不再回退 Settings.System。
+     * 回退曾把调试残留的测试坐标当成有效配置，导致体适能一启动就偏到几百米外。
+     */
     private static synchronized boolean tryRead() {
         if (sCtx == null) return false;
         if (readProvider()) {
             sConfigLoaded = true;
             return true;
         }
-        try {
-            String cfg = android.provider.Settings.System.getString(
-                    sCtx.getContentResolver(), "mokr_config");
-            String origin = android.provider.Settings.System.getString(
-                    sCtx.getContentResolver(), "mokr_origin");
-            String b64 = android.provider.Settings.System.getString(
-                    sCtx.getContentResolver(), "mokr_route_b64");
-
-            if (cfg != null && cfg.length() > 5) {
-                float sp = -1f, cd = -1f, st = -1f;
-                String[] parts = cfg.split(";");
-                for (int i = 0; i < parts.length; i++) {
-                    String p = parts[i].trim();
-                    int eq = p.indexOf('=');
-                    if (eq <= 0) continue;
-                    String k = p.substring(0, eq).trim();
-                    String v = p.substring(eq + 1).trim();
-                    try {
-                        if ("speed".equals(k)) sp = Float.parseFloat(v);
-                        else if ("cadence".equals(k)) cd = Float.parseFloat(v);
-                        else if ("stride".equals(k)) st = Float.parseFloat(v);
-                    } catch (Throwable ignored) {
-                    }
-                }
-                if (sp > 0.1f) sSpeed = sp;
-                if (cd > 0.1f) sCadence = cd;
-                if (st > 0.2f) sStride = st;
-            }
-
-            String waypoints = "";
-            if (b64 != null && b64.length() > 4) {
-                try {
-                    byte[] raw = android.util.Base64.decode(b64, android.util.Base64.NO_WRAP);
-                    waypoints = new String(raw, "UTF-8");
-                } catch (Throwable ignored) {
-                }
-            }
-
-            applyOriginRoute(origin, waypoints);
-            sConfigLoaded = true;
-            return true;
-        } catch (Throwable t) {
-            XposedBridge.log(TAG + ": config read failed " + t);
-            return false;
-        }
+        return false;
     }
 
 
