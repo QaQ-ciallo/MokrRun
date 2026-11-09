@@ -322,7 +322,10 @@ public final class MotionEngine {
             tryRead();
         }
         if (!isRunningNow()) {
-            // 空闲时也要偶尔吭一声，否则 mode 不对的时候完全没有日志可查
+            // 关键：暂停期间也要刷新时间基准。
+            // 否则恢复时 dt = 整个暂停时长，引擎会把这段时间的距离一次性补上，
+            // 表现为位置瞬移、里程和步数突然跳一大截。
+            sLastTick = System.currentTimeMillis();
             if (sTicks % 80 == 0) {
                 XposedBridge.log(TAG + ": idle mode=" + sMode
                         + " intentMode=" + sIntentMode
