@@ -24,6 +24,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mokrun.app.data.ConfigSync;
+import com.mokrun.app.data.LocationHelper;
 import com.mokrun.app.data.Store;
 
 import java.util.Locale;
@@ -255,6 +256,26 @@ public class FloatService extends Service {
     }
 
 
+    /** 把途经点 JSON 里的坐标批量反解成 WGS-84 */
+    private String toWgsWaypoints(String json) {
+        if (json == null || json.length() < 5) return "";
+        try {
+            org.json.JSONArray arr = new org.json.JSONArray(json);
+            org.json.JSONArray out = new org.json.JSONArray();
+            for (int i = 0; i < arr.length(); i++) {
+                org.json.JSONObject p = arr.getJSONObject(i);
+                double[] w = LocationHelper.gcj2wgs(p.getDouble("lat"), p.getDouble("lng"));
+                org.json.JSONObject q = new org.json.JSONObject();
+                q.put("lat", w[0]);
+                q.put("lng", w[1]);
+                out.put(q);
+            }
+            return out.toString();
+        } catch (Throwable t) {
+            return json;
+        }
+    }
+
     /** 带配置拉起体适能：SINGLE_TOP + REORDER_TO_FRONT，已在前台时只走 onNewIntent */
     private void launchTargetWithConfig() {
         try {
@@ -264,9 +285,19 @@ public class FloatService extends Service {
                 return;
             }
             i.putExtra("mokr_cfg", ConfigSync.buildLine(this));
+
+            // 起点由 GCJ-02 反解回 WGS-84：体适能会自己再转一次，
+            // 传 GCJ-02 过去会导致双重转换、位置偏出几百米
             double[] o = Store.origin(this);
-            i.putExtra("mokr_origin", o == null ? "" : (o[0] + "," + o[1]));
-            i.putExtra("mokr_route", ConfigSync.waypointsJson(this));
+            if (o != null) {
+                double[] w = LocationHelper.gcj2wgs(o[0], o[1]);
+                i.putExtra("mokr_origin", w[0] + "," + w[1]);
+            } else {
+                i.putExtra("mokr_origin", "");
+            }
+
+            // 途经点同样反解
+            i.putExtra("mokr_route", toWgsWaypoints(ConfigSync.waypointsJson(this)));
             i.putExtra("mokr_run", running ? 1 : 2);
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                     | Intent.FLAG_ACTIVITY_SINGLE_TOP

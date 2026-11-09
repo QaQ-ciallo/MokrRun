@@ -69,6 +69,28 @@ public final class LocationHelper {
         return new double[]{lat + dLat, lon + dLon};
     }
 
+
+    /**
+     * GCJ-02 → WGS-84（近似反解）。
+     *
+     * 体适能内部会把收到的坐标当作 WGS-84 处理再转 GCJ-02，
+     * 所以传给它的必须是原始坐标，否则会转两次、偏出几百米。
+     */
+    public static double[] gcj2wgs(double lat, double lon) {
+        double[] gcj = wgs2gcj(lat, lon);
+        double dLat = gcj[0] - lat;
+        double dLon = gcj[1] - lon;
+        // 迭代两次足够精确（误差 < 0.1m）
+        double wLat = lat - dLat;
+        double wLon = lon - dLon;
+        for (int i = 0; i < 2; i++) {
+            double[] g2 = wgs2gcj(wLat, wLon);
+            wLat -= (g2[0] - lat);
+            wLon -= (g2[1] - lon);
+        }
+        return new double[]{wLat, wLon};
+    }
+
     // ---- 定位 ---------------------------------------------------------------
 
     public static boolean hasPermission(Context ctx) {
