@@ -1,5 +1,6 @@
 package com.mokrun.app.xposed;
 
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -12,9 +13,12 @@ import de.robv.android.xposed.XposedHelpers;
 /**
  * 运行控制通道：暂停 / 继续 / 结束。
  *
- * 这三个动作不需要传配置，只需要改一个数字，所以用显式广播就够了
- * （setPackage 定向发送，不触发 Android 8+ 的隐式广播限制）。
- * 这样悬浮窗按暂停时不会把目标应用切到前台。
+ * 这三个动作不需要传配置，只需要改一个数字，用显式广播就够了
+ * （setPackage 定向发送，不触发 Android 8+ 的隐式广播限制），
+ * 这样按暂停时不会把目标应用切到前台。
+ *
+ * 注册时机：hook Application.attach 太早了——我们注入的时候它早就调用过，
+ * 回调永远不触发。改成在 Activity.onCreate 里拿 Context 注册，只注册一次。
  */
 public final class CommandReceiver {
 
@@ -23,27 +27,30 @@ public final class CommandReceiver {
     public static final String EX_MODE = "mode";
 
     private static boolean sInstalled = false;
+    private static volatile boolean sRegistered = false;
 
     private CommandReceiver() {}
 
-    public static void install(final ClassLoader cl) {
+    public static void install(ClassLoader cl) {
         if (sInstalled) return;
         sInstalled = true;
         try {
-            XposedHelpers.findAndHookMethod("android.app.Application", cl,
-                    "attach", Context.class, new XC_MethodHook() {
-                        @Override protected void afterHookedMethod(MethodHookParam param) {
-                            Context ctx = (Context) param.args[0];
-                            register(ctx);
-                        }
-                    });
+            Class<?> activity = XposedHelpers.findClass("android.app.Activity", cl);
+            XposedBridge.hookAllMethods(activity, "onCreate", new XC_MethodHook() {
+                @Override protected void afterHookedMethod(MethodHookParam param) {
+                    if (sRegistered) return;
+                    if (!(param.thisObject instanceof Activity)) return;
+                    register(((Activity) param.thisObject).getApplicationContext());
+                }
+            });
             XposedBridge.log(TAG + ": command receiver wired");
         } catch (Throwable t) {
             XposedBridge.log(TAG + ": command receiver install failed " + t);
         }
     }
 
-    private static void register(Context ctx) {
+    private static synchronized void register(Context ctx) {
+        if (ctx == null || sRegistered) return;
         try {
             IntentFilter f = new IntentFilter(ACTION);
             Receiver r = new Receiver();
@@ -52,9 +59,10 @@ public final class CommandReceiver {
             } else {
                 ctx.registerReceiver(r, f);
             }
+            sRegistered = true;
             XposedBridge.log(TAG + ": command receiver registered");
         } catch (Throwable t) {
-            XposedBridge.log(TAG + ": register agent failed " + t);
+            XposedBridge.log(TAG + ": register failed " + t);
         }
     }
 
