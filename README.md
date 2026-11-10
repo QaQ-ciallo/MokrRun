@@ -22,9 +22,7 @@
 
 [**MokrRun-1.0.115.apk**](../../releases/latest) · 329 KB · Android 8.0+
 
-SHA-256 `9889ca336738a640e3bd92f56296625093b262731e0fbe088a8fdb50fcdf0859`
-
-<sub>所有版本见 [Releases](../../releases) 页（仓库右侧栏也会列出最新版本）</sub>
+<sub>所有版本见 [Releases](../../releases) 页</sub>
 
 </div>
 
