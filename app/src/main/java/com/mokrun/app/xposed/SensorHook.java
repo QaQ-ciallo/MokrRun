@@ -44,6 +44,7 @@ public final class SensorHook {
     public static void install(ClassLoader cl) {
         if (sInstalled) return;
         sInstalled = true;
+        hookRealEventProbe(cl);
         String[] classes = {"android.hardware.SystemSensorManager", "android.hardware.SensorManager"};
         for (int i = 0; i < classes.length; i++) {
             try {
@@ -54,6 +55,47 @@ public final class SensorHook {
             } catch (Throwable t) {
                 XposedBridge.log(TAG + ": sensor hook failed on " + classes[i] + " (" + t + ")");
             }
+        }
+    }
+
+    /**
+     * 纯观察：统计「真实传感器事件」的投递量。
+     *
+     * 关键点：RegHook 只记录了 listener，并没有拦掉原始注册，
+     * 所以系统仍会把真实硬件事件投递给应用。这里挂在 SensorEventQueue 上，
+     * 凡是从系统队列下来的事件都算真实事件（我们合成的事件不经过它）。
+     * 用它来判断「步数是不是双重来源」——这是交接文档里尚未验证的第 4 项。
+     */
+    private static final java.util.Map<Integer, Integer> sRealEvents =
+            new java.util.HashMap<Integer, Integer>();
+    private static long sLastRealDump = 0L;
+
+    private static void hookRealEventProbe(ClassLoader cl) {
+        try {
+            Class<?> q = XposedHelpers.findClass(
+                    "android.hardware.SystemSensorManager$SensorEventQueue", cl);
+            XposedBridge.hookAllMethods(q, "dispatchSensorEvent", new XC_MethodHook() {
+                @Override protected void beforeHookedMethod(MethodHookParam param) {
+                    try {
+                        Object a0 = param.args[0];
+                        if (!(a0 instanceof Integer)) return;
+                        Integer handle = (Integer) a0;
+                        long now = System.currentTimeMillis();
+                        synchronized (sRealEvents) {
+                            Integer c = sRealEvents.get(handle);
+                            sRealEvents.put(handle, Integer.valueOf(c == null ? 1 : c.intValue() + 1));
+                            if (now - sLastRealDump < 10000L) return;
+                            sLastRealDump = now;
+                            XposedBridge.log(TAG + ": real sensor events -> " + sRealEvents);
+                            sRealEvents.clear();
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                }
+            });
+            XposedBridge.log(TAG + ": real sensor event probe installed");
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": real sensor probe skipped (" + t + ")");
         }
     }
 
@@ -76,6 +118,12 @@ public final class SensorHook {
                     sSensors.put(l, s);
                     XposedBridge.log(TAG + ": step listener + type=" + type
                             + " total=" + sListeners.size());
+                }
+                // 步数双源 A/B 开关：rs=1 时跳过真实注册，
+                // 让应用只收到我们合成的事件（真实硬件事件不再叠加）。
+                if (MotionEngine.suppressRealSteps()) {
+                    param.setResult(null);
+                    XposedBridge.log(TAG + ": step register suppressed (rs=1) type=" + type);
                 }
                 MotionEngine.addListener(null);
             } catch (Throwable t) {

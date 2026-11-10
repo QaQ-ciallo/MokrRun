@@ -167,12 +167,17 @@ public final class Store {
 
     // ---- 速度 / 步频 / 步长 联动 -------------------------------------------
 
-    /** 基准：2.5 m/s 对应 2.2 步/秒，越快步子迈得越频 */
+    /**
+     * 基准：2.5 m/s 对应 2.2 步/秒，越快步子迈得越频。
+     * 默认速度取 4.8 m/s（17.3 km/h）：2 km ≈ 7 分钟，落在「5~16 分钟」合格窗口内。
+     * 上限 5.0 m/s —— 实测 5.5 m/s 起目标应用只认一半里程（见交接校验报告 §11.1）。
+     */
     public static final float BASE_SPEED = 2.5f;
     public static final float BASE_CADENCE = 2.2f;
     public static final float CADENCE_SLOPE = 0.4f;
     public static final float MIN_SPEED = 1.0f;
     public static final float MAX_SPEED = 5.0f;
+    public static final float DEFAULT_SPEED = 4.8f;
 
     public static float cadenceFor(float speed) {
         float c = BASE_CADENCE + (speed - BASE_SPEED) * CADENCE_SLOPE;
@@ -193,7 +198,7 @@ public final class Store {
     }
 
     public static float speed(Context ctx) {
-        return prefs(ctx).getFloat(KEY_SPEED, 2.5f);
+        return prefs(ctx).getFloat(KEY_SPEED, DEFAULT_SPEED);
     }
 
     public static void setSpeed(Context ctx, float v) {
@@ -201,7 +206,7 @@ public final class Store {
     }
 
     public static float cadence(Context ctx) {
-        return prefs(ctx).getFloat(KEY_CADENCE, 2.2f);
+        return prefs(ctx).getFloat(KEY_CADENCE, 3.1f);
     }
 
     public static void setCadence(Context ctx, float v) {
@@ -209,11 +214,24 @@ public final class Store {
     }
 
     public static float stride(Context ctx) {
-        return prefs(ctx).getFloat(KEY_STRIDE, 1.1f);
+        return prefs(ctx).getFloat(KEY_STRIDE, 1.55f);
     }
 
     public static void setStride(Context ctx, float v) {
         prefs(ctx).edit().putFloat(KEY_STRIDE, v).apply();
+    }
+
+    /**
+     * 一次性把参数迁到实测最优：4.8 m/s → 步频 3.12、步长 1.54。
+     * 用 cfgVer 做标记，只迁移一次，之后用户怎么改都不会被覆盖。
+     */
+    public static void migrateDefaults(Context ctx) {
+        try {
+            if (prefs(ctx).getInt("cfgVer", 0) >= 1) return;
+            setSpeedWithDerived(ctx, DEFAULT_SPEED);
+            prefs(ctx).edit().putInt("cfgVer", 1).apply();
+        } catch (Throwable ignored) {
+        }
     }
 
     public static boolean anti(Context ctx) {

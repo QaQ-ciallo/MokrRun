@@ -57,12 +57,24 @@ public final class ConfigSync {
         }
     }
 
-    /** "speed=2.5;cadence=2.2;stride=1.14;anti=1" —— 刻意不带引号 */
+    /**
+     * "speed=4.8;cadence=3.1;stride=1.55;anti=1;spdmax=5.0;sat=14;qr=2;acc=0"
+     *
+     * 后四个是模拟侧的固定配方（实测结论，见交接校验报告 §11）：
+     *   spdmax=5.0  目标应用的速度上限，超过只认一半里程
+     *   sat=14      AMapLocation.getSatellites / 质量报告的卫星数
+     *   qr=2        AMapLocationQualityReport.getGPSStatus（0 = GPS 无效，会弹轨迹异常）
+     *   acc=0       AMapLocation.getGpsAccuracyStatus（真实值 -1）
+     */
     public static String buildLine(Context ctx) {
         return "speed=" + Store.speed(ctx)
                 + ";cadence=" + Store.cadence(ctx)
                 + ";stride=" + Store.stride(ctx)
-                + ";anti=" + (Store.anti(ctx) ? "1" : "0");
+                + ";anti=" + (Store.anti(ctx) ? "1" : "0")
+                + ";spdmax=5.0"
+                + ";sat=14"
+                + ";qr=2"
+                + ";acc=0";
     }
 
     /**

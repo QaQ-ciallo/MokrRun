@@ -29,6 +29,36 @@ public final class MotionEngine {
     private static volatile float sSpeed = 2.5f;
     private static volatile float sCadence = 2.2f;
     private static volatile float sStride = 1.1f;
+    /** 伪装用的卫星数：真实 GPS 常见 8~22，这里给 14±2 的抖动，避免恒定值 */
+    private static volatile int sSat = 14;
+    /** AMapLocationQualityReport.getGPSStatus() 的伪装值，可用 cfg 里的 qr= 覆盖 */
+    private static volatile int sQrStatus = 2;
+    /**
+     * 速度上限（最后更新：2026-11-10 07:56 实测扫点）。
+     *
+     * 扫点结果（GPS 质量伪装全开，同一场次热切换，窗长 40~62 s）：
+     *   2.8 m/s → 比值 1.01    3.5 → 0.96    5.0 → 0.95
+     *   5.5 m/s → 0.47    6.2 → 0.50        ← 过阈值直接掉一半
+     * 所以目标应用的上限在 5.0~5.5 m/s（18~20 km/h）之间，默认夹到 5.0。
+     *
+     * 注意：早前「3 m/s 上限」的结论是错的——那次同时叠加了 GPS 质量闸门，
+     * 速度与质量两个变量没分开。质量伪装（qr/sat/acc）生效后，5.0 m/s 是正常的。
+     */
+    private static volatile float sSpeedMax = 5.0f;
+    /** 是否屏蔽真实传感器注册（步数双源 A/B 开关，cfg 里 rs=1 打开） */
+    private static volatile boolean sSuppressRealSteps = false;
+    /** 跨场次累计的步数基数：保证 TYPE_STEP_COUNTER 单调递增，不会「变小」 */
+    private static volatile long sStepBase = 0;
+    /** 伪装海拔（米）。真实 Location 里没设 altitude，取出来是 0.0，本身就很可疑 */
+    private static volatile float sAlt = 25f;
+    /** AMapLocation.getGpsAccuracyStatus() 的伪装值；真实值 -1，默认 0（“精度正常”） */
+    private static volatile int sGpsAccStatus = 0;
+    /** 人脸识别期间冻结状态 */
+    private static volatile boolean sFaceFrozen = false;
+    private static volatile int sPrevMode = 1;
+    private static Handler sFaceHandler = null;
+    /** 人脸识别冻结最长 3 分钟，超时自动恢复（防止卡死在暂停态） */
+    private static final long FACE_FREEZE_MS = 180000L;
 
     /** 路线：index 0 是起点，后面是途经点 */
     private static volatile double[] sLat = new double[]{39.908700};
@@ -65,9 +95,70 @@ public final class MotionEngine {
     public static float speedNow() { return sSpeed; }
     public static long steps() { return sSteps; }
 
-    /** 正在接管位置（运行或冻结） */
+    /** 伪装卫星数：14 上下 ±2 抖动（真实 GPS 不会恒定） */
+    public static int satellites() {
+        long t = sTicks;
+        int jitter = (int) (t % 5) - 2;
+        return sSat + jitter;
+    }
+
+    public static String provider() { return "gps"; }
+
+    public static int qrStatus() { return sQrStatus; }
+
+    public static boolean suppressRealSteps() { return sSuppressRealSteps; }
+
+    /** 伪装海拔：在 25m 上下 ±3 抖动（东莞一带地形高度） */
+    public static double altitude() {
+        return sAlt + ((sTicks % 7) - 3) * 0.5;
+    }
+
+    public static int gpsAccStatus() { return sGpsAccStatus; }
+
+    /**
+     * 中途人脸识别 → 立刻冻结。
+     *
+     * 实测（07:36 弹窗）：「中途第2次人脸识别超出150米允许识别范围，本次跑步无效」。
+     * 也就是说弹出识别时，模拟位置必须停在原地（150 m 内），
+     * 否则识别窗口一过就判无效。真跑步时人本来就会停下做识别，
+     * 所以这里等价于「有人脸请求就停表」。
+     */
+    public static void freezeForFace() {
+        if (sFaceFrozen) return;
+        sFaceFrozen = true;
+        sPrevMode = sMode;
+        setMode(2);
+        XposedBridge.log(TAG + ": face check detected -> motion frozen (mode=2)");
+        try {
+            if (sFaceHandler == null) sFaceHandler = new Handler(Looper.getMainLooper());
+            sFaceHandler.removeCallbacksAndMessages(null);
+            sFaceHandler.postDelayed(new Runnable() {
+                @Override public void run() {
+                    XposedBridge.log(TAG + ": face freeze timeout -> resuming");
+                    resumeAfterFace();
+                }
+            }, FACE_FREEZE_MS);
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": face freeze timer failed " + t);
+        }
+    }
+
+    /** 识别做完后恢复原来的模式（默认回 1 = 继续跑） */
+    public static void resumeAfterFace() {
+        if (!sFaceFrozen) return;
+        sFaceFrozen = false;
+        int back = sPrevMode == 0 ? 1 : sPrevMode;
+        setMode(back);
+        XposedBridge.log(TAG + ": face check done -> resume mode=" + back);
+    }
+
+    public static boolean faceFrozen() { return sFaceFrozen; }
+
+    public static boolean hasRoute() { return sLat != null && sLat.length > 1; }
+
+    /** 正在接管位置（运行或冻结）。没有路线时不接管——否则会把人丢到默认坐标上 */
     public static boolean isActive() {
-        return readMode() != 0;
+        return readMode() != 0 && hasRoute();
     }
 
     /** 只有运行中才推进 */
@@ -108,8 +199,19 @@ public final class MotionEngine {
         l.setLongitude(sCurLon);
         l.setSpeed(sSpeed);
         l.setAccuracy(3.0f);
+        l.setAltitude(altitude());
         l.setTime(System.currentTimeMillis());
         l.setElapsedRealtimeNanos(System.nanoTime());
+        // 系统真实 GPS 的 Location 自带 satellites/maxCn0/meanCn0 三个 extras
+        // （dumpsys location 可见），不少应用直接从这里读卫星数画信号格。
+        try {
+            android.os.Bundle b = new android.os.Bundle();
+            b.putInt("satellites", satellites());
+            b.putInt("maxCn0", 33);
+            b.putInt("meanCn0", 29);
+            l.setExtras(b);
+        } catch (Throwable ignored) {
+        }
         return l;
     }
 
@@ -171,7 +273,7 @@ public final class MotionEngine {
             String route = c.getString(5);
             int run = c.getInt(6);
             applyOriginRoute(origin, route);
-            applyConfigInner(sp, cd, st, route);
+            applyConfigInner(sp, cd, st);
             sMode = run;
             sRunCheckedAt = System.currentTimeMillis();
             return true;
@@ -205,6 +307,12 @@ public final class MotionEngine {
      */
     public static void applyFromIntent(String cfg, String origin, String waypoints, int run) {
         float sp = -1f, cd = -1f, st = -1f;
+        int sat = -1;
+        int qr = -1;
+        float spdmax = -1f;
+        int rs = -1;
+        float alt = -1f;
+        int acc = -2;
         if (cfg != null) {
             String[] parts = cfg.split(";");
             for (int i = 0; i < parts.length; i++) {
@@ -217,24 +325,45 @@ public final class MotionEngine {
                     if ("speed".equals(k)) sp = Float.parseFloat(v);
                     else if ("cadence".equals(k)) cd = Float.parseFloat(v);
                     else if ("stride".equals(k)) st = Float.parseFloat(v);
+                    else if ("sat".equals(k)) sat = Integer.parseInt(v);
+                    else if ("qr".equals(k)) qr = Integer.parseInt(v);
+                    else if ("spdmax".equals(k)) spdmax = Float.parseFloat(v);
+                    else if ("rs".equals(k)) rs = Integer.parseInt(v);
+                    else if ("alt".equals(k)) alt = Float.parseFloat(v);
+                    else if ("acc".equals(k)) acc = Integer.parseInt(v);
                 } catch (Throwable ignored) {
                 }
             }
         }
+        if (sat > 0) sSat = sat;
+        if (qr >= 0) sQrStatus = qr;
+        if (spdmax > 0.1f) sSpeedMax = spdmax;
+        if (rs >= 0) sSuppressRealSteps = (rs == 1);
+        if (alt > 0f) sAlt = alt;
+        if (acc >= 0) sGpsAccStatus = acc;
         applyOriginRoute(origin, waypoints);
-        applyConfigInner(sp, cd, st, waypoints);
+        applyConfigInner(sp, cd, st);
         sMode = run;
         sIntentMode = true;
         sRunCheckedAt = System.currentTimeMillis();
         sConfigLoaded = true;
         XposedBridge.log(TAG + ": applied from intent speed=" + sSpeed
                 + " cadence=" + sCadence + " stride=" + sStride
+                + " sat=" + sSat
                 + " mode=" + run + " points=" + sLat.length);
     }
 
     /** 只更新参数，不动路线（路线由 applyOriginRoute 负责） */
-    private static void applyConfigInner(float speed, float cadence, float stride, String route) {
-        if (speed > 0.1f) sSpeed = speed;
+    private static void applyConfigInner(float speed, float cadence, float stride) {
+        if (speed > 0.1f) {
+            float eff = speed;
+            if (speed > sSpeedMax) {
+                eff = sSpeedMax;
+                XposedBridge.log(TAG + ": speed " + speed + " clamped to " + sSpeedMax
+                        + " (target drops points above ~3.0 m/s)");
+            }
+            sSpeed = eff;
+        }
         if (cadence > 0.1f) sCadence = cadence;
         if (stride > 0.2f) sStride = stride;
     }
@@ -309,6 +438,9 @@ public final class MotionEngine {
         sCurLat = sLat[0];
         sCurLon = sLon[0];
         sDistTotal = 0;
+        // 步数不能回退：TYPE_STEP_COUNTER 的语义是「开机以来累计」，
+        // 一旦变小就是很明显的伪造特征。所以本场清零时把基数累加过去。
+        sStepBase += sSteps;
         sSteps = 0;
         sStepAccum = 0;
         sTicks = 0;
@@ -373,8 +505,10 @@ public final class MotionEngine {
         while (sStepAccum >= 1.0) {
             sStepAccum -= 1.0;
             sSteps++;
-            SensorHook.pushStep(sSteps);
+            SensorHook.pushStep(sStepBase + sSteps);
         }
+
+        SDKLocationHook.dumpStats();
 
         emitLocation();
 

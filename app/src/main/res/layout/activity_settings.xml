@@ -171,6 +171,22 @@
             android:text="改速度时步频与步长会自动换算"
             style="@style/CardBody" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginLeft="4dp"
+            android:text="速度上限 5.0 m/s（18 km/h）：实测超过 5.5 m/s 时，目标应用只会记录一半里程"
+            style="@style/CardBody" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginLeft="4dp"
+            android:text="推荐 4.8 m/s：2 公里约 7 分钟，落在 5~16 分钟的合格窗口内"
+            style="@style/CardBody" />
+
         <!-- developer -->
         <LinearLayout
             android:id="@+id/cardDeveloper"

@@ -38,6 +38,10 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // 把实测得到的最佳参数（4.8 m/s / 3.1 步/秒 / 1.55 m）一次性写进 prefs，
+        // 之后用户自己的改动不会被覆盖（靠 cfgVer 只迁移一次）。
+        Store.migrateDefaults(this);
+
         FrameLayout content = (FrameLayout) findViewById(R.id.content);
         pageHome = getLayoutInflater().inflate(R.layout.page_home, content, false);
         content.addView(pageHome);

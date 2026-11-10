@@ -247,6 +247,13 @@ public class FloatService extends Service {
             Intent i = new Intent(CMD_ACTION);
             i.setPackage("com.bxkj.student");
             i.putExtra("mode", mode);
+            // 配置一起带上：ContentProvider 在「模块进程未运行」时会被系统拦掉
+            // （日志：No provider info ... when providerRunning is false），
+            // 广播是一次性直投，没有这个问题，所以把它做成配置的第二通道。
+            i.putExtra("cfg", ConfigSync.buildLine(this));
+            double[] o = Store.origin(this);
+            i.putExtra("origin", o == null ? "" : (o[0] + "," + o[1]));
+            i.putExtra("route", ConfigSync.waypointsJson(this));
             sendBroadcast(i);
             android.util.Log.i("MokrRunFloat", "command sent mode=" + mode);
         } catch (Throwable t) {

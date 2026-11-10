@@ -50,8 +50,10 @@ public class ModuleEntry implements IXposedHookLoadPackage {
                             SensorHook.install(cl);
                             AntiDetect.install(cl);
                             SDKLocationHook.install(cl);
+                            GnssHook.install(cl);
                             IntentBridge.install(cl);
                             CommandReceiver.install(cl);
+                            ResourceProbe.install(cl);
                         }
                     });
             XposedBridge.log(TAG + ": hooked Application.attach");

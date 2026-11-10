@@ -25,6 +25,9 @@ public final class CommandReceiver {
     private static final String TAG = "MokrRun";
     public static final String ACTION = "com.mokrun.app.CMD";
     public static final String EX_MODE = "mode";
+    public static final String EX_CFG = "cfg";
+    public static final String EX_ORIGIN = "origin";
+    public static final String EX_ROUTE = "route";
 
     private static boolean sInstalled = false;
     private static volatile boolean sRegistered = false;
@@ -71,7 +74,20 @@ public final class CommandReceiver {
             try {
                 int mode = intent.getIntExtra(EX_MODE, -1);
                 if (mode < 0) return;
-                MotionEngine.setMode(mode);
+
+                // 配置也可以走这条通道：广播不依赖 ContentProvider，
+                // 因此在「provider 冷启动被拦」的机器上依然能把起点/路线送到。
+                String cfg = intent.getStringExtra(EX_CFG);
+                if (cfg != null && cfg.length() > 4) {
+                    String origin = intent.getStringExtra(EX_ORIGIN);
+                    String route = intent.getStringExtra(EX_ROUTE);
+                    MotionEngine.applyFromIntent(cfg, origin, route, mode);
+                    XposedBridge.log(TAG + ": config via broadcast " + cfg
+                            + " run=" + mode
+                            + " routeLen=" + (route == null ? 0 : route.length()));
+                } else {
+                    MotionEngine.setMode(mode);
+                }
                 XposedBridge.log(TAG + ": command mode=" + mode);
             } catch (Throwable t) {
                 XposedBridge.log(TAG + ": command failed " + t);
