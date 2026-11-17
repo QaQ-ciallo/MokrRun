@@ -6,7 +6,10 @@ import android.os.Handler;
 import android.os.Looper;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Locale;
+import java.util.Map;
 
 import de.robv.android.xposed.XposedBridge;
 
@@ -119,7 +122,9 @@ public final class MotionEngine {
     private static Handler sHandler = null;
     private static long sTicks = 0;
     private static long sLastTick = 0L;
-    private static final ArrayList<LocationListener> sListeners = new ArrayList<LocationListener>();
+    /** 定位监听器：value = true 表示单次定位（requestSingleUpdate），投递一次即解除 */
+    private static final Map<LocationListener, Boolean> sListeners =
+            Collections.synchronizedMap(new IdentityHashMap<LocationListener, Boolean>());
     private static android.content.Context sCtx = null;
 
     private MotionEngine() {}
@@ -354,12 +359,39 @@ public final class MotionEngine {
     }
 
     public static void addListener(LocationListener l) {
+        addListener(l, false);
+    }
+
+    /** requestSingleUpdate 的监听器：只投递一次，投递后自动解除 */
+    public static void addSingleShotListener(LocationListener l) {
+        addListener(l, true);
+    }
+
+    private static void addListener(LocationListener l, boolean oneShot) {
         if (l != null) {
             synchronized (sListeners) {
-                if (!sListeners.contains(l)) sListeners.add(l);
+                Boolean previous = sListeners.get(l);
+                // 连续注册不会被单次注册降级；单次注册也不会把连续注册改成单次
+                if (previous == null || (previous.booleanValue() && !oneShot)) {
+                    sListeners.put(l, Boolean.valueOf(oneShot));
+                }
             }
         }
         start();
+    }
+
+    /**
+     * 框架调用 removeUpdates(listener) 时同步解除引擎引用。
+     * 之前没有任何移除路径：应用注销后引擎每个 tick 仍在回调它，
+     * 目标应用会收到「已经注销却还在更新」的定位，属于明显异常。
+     */
+    public static void removeListener(LocationListener l) {
+        if (l == null) return;
+        boolean removed;
+        synchronized (sListeners) {
+            removed = sListeners.remove(l) != null;
+        }
+        if (removed) XposedBridge.log(TAG + ": location listener removed");
     }
 
     // ---- config ------------------------------------------------------------
@@ -656,14 +688,23 @@ public final class MotionEngine {
         ArrayList<LocationListener> ls;
         synchronized (sListeners) {
             if (sListeners.isEmpty()) return;
-            ls = new ArrayList<LocationListener>(sListeners);
+            ls = new ArrayList<LocationListener>(sListeners.keySet());
         }
         for (int i = 0; i < ls.size(); i++) {
+            LocationListener l = ls.get(i);
             try {
-                ls.get(i).onLocationChanged(current());
+                l.onLocationChanged(current());
             } catch (Throwable t) {
                 XposedBridge.log(TAG + ": emit failed " + t);
             }
+            // 单次定位：无论回调是否抛异常，都只投递一次
+            boolean oneShot;
+            synchronized (sListeners) {
+                Boolean flag = sListeners.get(l);
+                oneShot = flag != null && flag.booleanValue();
+                if (oneShot) sListeners.remove(l);
+            }
+            if (oneShot) XposedBridge.log(TAG + ": single-shot location listener released");
         }
     }
 

@@ -28,8 +28,40 @@ public final class LocationProbe {
         hookGetCurrent(cl);
         hookRequestUpdates(cl);
         hookSingleUpdate(cl);
+        hookRemoveUpdates(cl);
         hookPendingIntent(cl);
         logAllCalls(cl);
+    }
+
+    /**
+     * 定位监听器的注销必须同步到引擎。
+     * 之前只接了 requestLocationUpdates，没有接 removeUpdates：
+     * 应用注销后引擎每个 tick 仍在回调该 listener，目标应用会看到
+     * 「已经注销却还在更新」的定位流。
+     */
+    private static void hookRemoveUpdates(ClassLoader cl) {
+        try {
+            Class<?> lm = XposedHelpers.findClass("android.location.LocationManager", cl);
+            XposedBridge.hookAllMethods(lm, "removeUpdates", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    try {
+                        for (Object a : param.args) {
+                            if (a instanceof LocationListener) {
+                                MotionEngine.removeListener((LocationListener) a);
+                                XposedBridge.log(TAG + ": removeUpdates captured "
+                                        + a.getClass().getName());
+                            }
+                        }
+                    } catch (Throwable t) {
+                        XposedBridge.log(TAG + ": removeUpdates hook error " + t);
+                    }
+                }
+            });
+            XposedBridge.log(TAG + ": hooked removeUpdates");
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": removeUpdates hook skipped (" + t + ")");
+        }
     }
 
     private static void hookGetLastKnown(ClassLoader cl) {
@@ -126,7 +158,8 @@ public final class LocationProbe {
                         try {
                             for (Object a : param.args) {
                                 if (a instanceof LocationListener) {
-                                    MotionEngine.addListener((LocationListener) a);
+                                    // 单次定位：投递一次就解除，不等应用来注销
+                                    MotionEngine.addSingleShotListener((LocationListener) a);
                                     XposedBridge.log(TAG + ": requestSingleUpdate captured");
                                 }
                             }
