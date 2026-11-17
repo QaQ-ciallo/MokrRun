@@ -1,0 +1,4 @@
+OBSERVED callbackModifiers=private static final
+OBSERVED completed=1
+OBSERVED publicInterfaceControlCompleted=2
+PASS non-public callback completion

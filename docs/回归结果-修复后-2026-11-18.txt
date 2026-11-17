@@ -392,6 +392,63 @@ LOG MokrRun: hooked getLastLocation (fused client)
 LOG MokrRun: mode set to 0 (via command)
 PASS system_callback_suppressed_during_takeover
 
+=== completion_null_callback_handled (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.removeUpdates [all]
+LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$LocationListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed via android.location.LocationManager$LocationListenerTransport
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed via android.location.LocationManager$ListenerTransport
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+PASS completion_null_callback_handled
+
+=== completion_notify_failure_logged (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.removeUpdates [all]
+LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$LocationListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed via android.location.LocationManager$LocationListenerTransport
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed via android.location.LocationManager$ListenerTransport
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: onComplete notify failed -> java.lang.IllegalStateException: fixture sendResult failure
+PASS completion_notify_failure_logged
+
 === legacy_system_callback_suppressed (exit 0) ===
 LOG MokrRun: route applied, 3 points, start=30.0,120.0
 LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
@@ -450,8 +507,8 @@ LOG MokrRunProbe: fixture -> �����ܲ���¼��Ч��ϵͳ��
     . com.mokrun.app.xposed.ResourceProbe.handleText: 174
     . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
     . java.lang.reflect.Method.invoke: 580
-    . com.mokrun.app.xposed.EngineRegression.reportText: 713
-    . com.mokrun.app.xposed.EngineRegression.main: 583
+    . com.mokrun.app.xposed.EngineRegression.reportText: 753
+    . com.mokrun.app.xposed.EngineRegression.main: 623
 
 LOG MokrRun: face check done -> resume mode=1
 PASS related_dialog_dismiss_resumes
@@ -485,8 +542,8 @@ LOG MokrRunProbe: fixture -> ���������ʶ��
     . com.mokrun.app.xposed.ResourceProbe.handleText: 174
     . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
     . java.lang.reflect.Method.invoke: 580
-    . com.mokrun.app.xposed.EngineRegression.reportText: 713
-    . com.mokrun.app.xposed.EngineRegression.main: 593
+    . com.mokrun.app.xposed.EngineRegression.reportText: 753
+    . com.mokrun.app.xposed.EngineRegression.main: 633
 
 LOG MokrRunProbe: Dialog.dismiss ignored, not the face dialog
 LOG MokrRun: face check done -> resume mode=1
@@ -541,8 +598,8 @@ LOG MokrRunProbe: fixture -> �����������������
     . com.mokrun.app.xposed.ResourceProbe.handleText: 174
     . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
     . java.lang.reflect.Method.invoke: 580
-    . com.mokrun.app.xposed.EngineRegression.reportText: 713
-    . com.mokrun.app.xposed.EngineRegression.main: 609
+    . com.mokrun.app.xposed.EngineRegression.reportText: 753
+    . com.mokrun.app.xposed.EngineRegression.main: 649
 
 PASS face_text_exclusion_still_applies
 
@@ -592,6 +649,6 @@ LOG MokrRun: config via Intent (onCreate) speed=3.5;cadence=2.6 run=1 routeLen=0
 PASS cfg_only_intent_keeps_route
 
 === gnss_payload_order_units (exit 0) ===
-LOG MokrRun: GnssStatus.Builder methods -> build() addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) addSatellite(int,float,float,float,float,int) addSatellite(int,float,float,float,float) 
+LOG MokrRun: GnssStatus.Builder methods -> addSatellite(int,float,float,float,float) addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) addSatellite(int,float,float,float,float,int) build() 
 LOG MokrRun: gnss addSatellite arity=12
 PASS gnss_payload_order_units

@@ -231,6 +231,12 @@ $env:MOKR_KS_PASS = "yourpass"
 
 ## 📝 更新日志
 
+### v1.0.120
+
+- 修复接管期间补发系统完成回调的反射访问问题（P1）：不再从非公开的 IRemoteCallback 代理实现类取方法，改为经公开接口 ndroid.os.IRemoteCallback 解析 sendResult(Bundle)（无编译期依赖，解析一次后缓存）
+- 补发失败时固定日志 onComplete notify failed -> <cause>，仍保持「接管期间不投递真实位置」；新增跨包非公开代理、null 回调、失败日志三类回归
+- 文档更正：有路线的暂停（mode=2）仍处于接管状态（位置冻结、真实回调丢弃），只有结束（mode=0）才交还真实定位
+
 ### v1.0.119
 
 - 修复系统定位回调 hook 挂错类名（P1）：API 30+ 的载体是 `LocationManager$LocationListenerTransport.onLocationChanged(List<Location>, IRemoteCallback)`，此前按 Android 10 的旧命名挂钩，导致接管期间真实定位事件完全没被拦截
@@ -241,7 +247,7 @@ $env:MOKR_KS_PASS = "yourpass"
 - 修复带配置的控制命令（悬浮窗「结束/暂停/继续」走广播 + cfg）没有取消人脸冻结的问题：结束后不再被 3 分钟超时改回运行；App 侧状态变化在冻结期间也立即生效
 - 修复卡顿后距离与步数使用不同时间窗（5 秒间隔曾出现 24 米 / 6 步）：两者共用 `min(dt, 2s)` 的有效运动时间
 - 修复同类型不同 Sensor 的误注销：计步注册改按 Sensor 实例记录，注销精确到具体 Sensor
-- 修复单次定位双源回调：接管期间 `requestSingleUpdate` 由合成流独占；系统连续回调在接管期间被丢弃，结束/暂停后自动恢复真实定位
+- 修复单次定位双源回调：接管期间 `requestSingleUpdate` 由合成流独占；系统连续回调在接管期间被丢弃，**结束（mode=0）**后才交还真实定位（有路线的暂停 mode=2 仍属接管：位置冻结、真实回调继续被丢弃）
 
 ### v1.0.117
 
