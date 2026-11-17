@@ -32,3 +32,7 @@ tmp_*
 __pycache__/
 *.pyc
 
+
+# on-site acceptance artifacts (large, local only)
+docs/*/logcat-full*.txt
+docs/*/shots*/

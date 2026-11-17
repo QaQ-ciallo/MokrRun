@@ -1,0 +1,85 @@
+# 证据 01：目标应用在「开始」时弹出疑似模拟定位拦截（2026-11-18）
+
+## 1. 时间线（设备本地时间）
+
+| 时间 | 事件 |
+|---|---|
+| 07:13:08.268 | 模块注入目标进程：`attached to com.bxkj.student process=com.bxkj.student main=true` |
+| 07:13:08.592 | `system location callbacks suppressed via android.location.LocationManager$LocationListenerTransport` |
+| 07:13:08.794 | `command receiver registered`（广播通道可用） |
+| 07:13:49 ~ 07:15:09 | 引擎持续 `idle mode=0 intentMode=false sConfigLoaded=false`（未接管、未推进） |
+| 07:15:09.1 | 目标应用从 MainActivity 切到 `V3SportsHomeActivity`（阳光跑页面） |
+| **07:15:10.770** | **目标应用弹出 `cn.bluemobi.dylan.base.view.iOSOneButtonDialog`：疑似模拟定位拦截** |
+| 07:17:39 | 现场截图：浮窗仍为「就绪 · 待开始」，对话框仍在屏上 |
+
+## 2. 对话框原文（ResourceProbe 抓取）
+
+```
+MokrRunProbe: Dialog.show cn.bluemobi.dylan.base.view.iOSOneButtonDialog ->
+  [AppCompatTextView] 提示
+| [AppCompatTextView] 系统检查到疑似模拟定位，已被系统记录，
+                     请【卸载虚拟定位软件】并【关闭开发者选项】后再试
+| [AppCompatButton] 确认 |
+```
+
+## 3. 调用栈（应用已 R8 混淆，仅一帧可读）
+
+```
+at com.bxkj.base.v2.common.ext.ContextExtKt.l(r8-map-id-ea1e40313d73036229bc9c31705b81d6bd7fbea1ab3d5d38449a2c3e671ac19f:47)
+```
+
+## 4. 关键否定证据：模块从未收到「开始」
+
+对全量日志（`C:\mokrlogs\logcat-full.txt`）逐关键字统计（截至 07:18）：
+
+| 关键字 | 命中数 | 说明 |
+|---|---|---|
+| `config via`（Intent 配置通道） | 0 | 浮窗「开始」未触发 launchTargetWithConfig |
+| `command mode=`（广播命令） | 0 | 未发送结束/暂停/继续 |
+| `mode set to` | 0 | 引擎状态从未被命令改变 |
+| `applied from intent` | 0 | 从未应用配置 |
+| `tick dist=` | 0 | 引擎从未进入运行态（mode=1） |
+
+结论：用户按的是**目标应用自己的开始按钮**，被应用的反模拟定位闸门拦下；
+模块侧浮窗仍是「就绪 · 待开始」，本轮跑步根本没有开始。
+
+## 5. 设备状态（只读采集）
+
+```
+development_settings_enabled = 1      ← 开发者选项开启
+adb_enabled                  = 1      ← USB 调试开启
+secure mock_location         = 0      ← 未设置系统级模拟位置应用
+MOCK_LOCATION allow 的包     = android, com.cxorz.anywhere
+com.cxorz.anywhere           = Anywhere- 虚拟定位 2.1.8，MOCK_LOCATION = allow（约 9 天前授予）
+```
+
+对话框里点名的两个条件，在设备上都成立：**开发者选项开启** 与 **存在被授予模拟定位的第三方应用**。
+
+## 6. 模块现有 anti-detect 覆盖（`AntiDetect.java`）
+
+已覆盖：
+
+- `Location.isMock` / `Location.isFromMockProvider` → false
+- `ApplicationPackageManager.getInstalledApplications(int)` / `getInstalledPackages(int)`
+  过滤包名，名单已含 `com.cxorz.anywhere` 与 `com.mokrun.app`
+
+未覆盖（可能的判定路径）：
+
+- `Settings.Global` 的 `development_settings_enabled` / `adb_enabled`
+- `AppOpsManager` 的 `OP_MOCK_LOCATION` 查询（`getPackagesForOps` / `noteOp`）
+- 定向 `getPackageInfo("com.cxorz.anywhere")`、`queryIntentActivities`
+- 其它包列表重载（如 `getInstalledPackages()` 无参版本）
+
+## 7. 现场截图
+
+- `01-module-home.png`：模块首页（当时尚无路线）
+- `02-target-before-start.png`：目标应用首页 + 浮窗「就绪 · 待开始」
+- `03-after-start.png`：拦截对话框现场
+
+## 8. 未确认项（不下结论）
+
+- 判定到底来自「开发者选项」还是「模拟定位应用权限」：两者当前都成立，
+  需要一次受控对照（见对话中的 A/B 方案）才能区分。
+- 目标应用 `com.bxkj.student` 于 2026-11-17 11:25 更新到 **2.0.26**（交接文档记录的是 2.0.22），
+  该闸门是否为新版本新增，尚无对照证据。
+- 本模块与失败无因果关系：闸门触发时引擎 `mode=0`、未接管定位、未注入任何合成位置。

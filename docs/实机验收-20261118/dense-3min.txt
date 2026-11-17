@@ -1,0 +1,32 @@
+﻿[07:34:36] dense#1 engine: 11-18 07:34:35.802 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:34:36.190 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:34:53] dense#2 engine: 11-18 07:34:52.293 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:34:52.695 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:35:09] dense#3 engine: 11-18 07:35:08.749 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:35:09.154 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:35:25] dense#4 engine: 11-18 07:35:25.236 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:35:25.629 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:35:42] dense#5 engine: 11-18 07:35:42.003 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-3da,0,1] MokrRun: tick dist=923.1m steps=599 pos=23.064382,113.976319 seg=7/22
+    face: 11-18 07:35:42.105 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:35:58] dense#6 engine: 11-18 07:35:58.181 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:35:58.587 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:36:15] dense#7 engine: 11-18 07:36:14.673 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:36:15.078 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:36:31] dense#8 engine: 11-18 07:36:31.119 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:36:31.540 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:36:48] dense#9 engine: 11-18 07:36:47.850 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-40a,0,1] MokrRun: tick dist=1164.7m steps=757 pos=23.063432,113.975169 seg=8/22
+    face: 11-18 07:36:48.081 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:37:04] dense#10 engine: 11-18 07:37:04.175 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:37:04.604 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:37:21] dense#11 engine: 11-18 07:37:20.690 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:37:21.109 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:37:37] dense#12 engine: 11-18 07:37:37.165 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:37:37.621 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:37:54] dense#13 engine: 11-18 07:37:53.723 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:37:54.167 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:38:10] dense#14 engine: 11-18 07:38:10.201 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:38:10.633 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:38:27] dense#15 engine: 11-18 07:38:26.686 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:38:27.016 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1
+[07:38:43] dense#16 engine: 11-18 07:38:42.918 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'tick dist=' | tail -1
+    face: 11-18 07:38:43.393 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'face check' | tail -1

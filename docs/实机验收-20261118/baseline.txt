@@ -1,0 +1,14 @@
+﻿# MokrRun 实机验收基线（2026-11-18）
+
+采集开始时间（本地）: 2026-11-18 07:08:52
+设备序列号: 1e3f46a0
+型号: 24129PN74C
+系统: Android 16 (API 36)
+版本号: BP2A.250605.031.A3
+APK: build/MokrRun.apk  SHA-256 A910E627E63685C9423D5B0A7C8C4C26C0E09CAAFB0B3CEE395BD65A58715DE9
+已安装模块: versionName=1.0.120
+目标应用: versionName=2.0.26
+配置（provider）: Row: 0 speed=4.8, cadence=3.1200001, stride=1.5384616, anti=1, origin=23.0647244,113.9778025, route=, run=0
+logcat 缓冲: main: ring buffer is 2 MiB (1 MiB consumed, 8 MiB readable), max entry is 5120 B, max payload is 4068 B
+其他已安装的框架类模块: org.frknkrc44.hma_oss (HMA-OSS), com.pansoul.fucktsn (FuckTSN)
+root 状态: adb shell 无 su（uid=2000 shell），LSPosed 作用域需由界面/注入日志确认
