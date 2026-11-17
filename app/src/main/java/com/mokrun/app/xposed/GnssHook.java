@@ -112,6 +112,11 @@ public final class GnssHook {
 
     private static long sLastEmitLog = 0L;
 
+    /** GPS L1 载频，单位 Hz。之前按 cn0-2 传，量级差了 8 个数量级 */
+    private static final float CARRIER_HZ = 1575.42e6f;
+    /** 12 参版本（API 30+）的参数个数 */
+    private static final int ARITY_12 = 12;
+
     private static boolean sDumpedBuilder = false;
     private static Method sAdd = null;
     private static Class<?>[] sAddParams = null;
@@ -138,9 +143,11 @@ public final class GnssHook {
                 java.lang.reflect.Method[] ms = builderCls.getDeclaredMethods();
                 for (int i = 0; i < ms.length; i++) {
                     if (!"addSatellite".equals(ms[i].getName())) continue;
-                    // 取参数最多的那个重载（API 36 只有 12 参版本）
+                    int p = ms[i].getParameterTypes().length;
+                    // 优先用 12 参版本（API 30 起）；更高版本新增的重载只在没有 12 参时兜底
                     if (sAdd == null
-                            || ms[i].getParameterTypes().length > sAddParams.length) {
+                            || (p == ARITY_12 && sAddParams.length != ARITY_12)
+                            || (p > sAddParams.length && sAddParams.length != ARITY_12)) {
                         sAdd = ms[i];
                         sAddParams = ms[i].getParameterTypes();
                     }
@@ -167,28 +174,82 @@ public final class GnssHook {
         }
     }
 
-    /** 按运行时实际签名填参数；API 36 是 12 参版本，旧版本是 5/6 参 */
+    /**
+     * 按运行时实际签名填参数。
+     *
+     * 官方 12 参签名（API 30~36，javap 与文档一致）：
+     *   addSatellite(int constellationType, int svid, float cn0DbHz,
+     *                float elevationDegrees, float azimuthDegrees,
+     *                boolean hasEphemerisData, boolean hasAlmanacData, boolean usedInFix,
+     *                boolean hasCarrierFrequency, float carrierFrequencyHz,
+     *                boolean hasBasebandCn0DbHz, float basebandCn0DbHz)
+     *
+     * 旧实现把 svid 放在第一位，并在载频位置传 cn0-2、在 basebandCn0 位置传 1575.42，
+     * 与公共 API 合同不符：星座类型变成了 svid，载频小 8 个数量级。
+     */
     private static void addOne(Object b, int svid, float cn0, float elev, float azim)
             throws Exception {
         int p = sAddParams == null ? 0 : sAddParams.length;
-        if (p == 12) {
-            // svid, constellationType, cn0, elev, azim, aboveThreshold, usedInFix,
-            // hasAlmanac, hasEphemeris, basebandCn0, hasCarrierFreq, carrierFreq
-            sAdd.invoke(b, Integer.valueOf(svid),
-                    Integer.valueOf(GnssStatus.CONSTELLATION_GPS),
-                    Float.valueOf(cn0), Float.valueOf(elev), Float.valueOf(azim),
-                    Boolean.TRUE, Boolean.TRUE, Boolean.TRUE, Boolean.TRUE,
-                    Float.valueOf(cn0 - 2f), Boolean.TRUE, Float.valueOf(1575.42f));
+        if (p == ARITY_12) {
+            sAdd.invoke(b, args12(svid, cn0, elev, azim));
+        } else if (p > ARITY_12) {
+            // 更高版本追加了参数（例如 API 37 的 18 参重载）：前 12 个语义相同，
+            // 其余按参数类型填「不可用」的默认值。该分支未在实机验证。
+            Class<?>[] types = sAddParams;
+            Object[] head = args12(svid, cn0, elev, azim);
+            Object[] argv = new Object[types.length];
+            for (int i = 0; i < types.length; i++) {
+                if (i < head.length) {
+                    argv[i] = head[i];
+                } else if (types[i] == boolean.class) {
+                    argv[i] = Boolean.FALSE;
+                } else if (types[i] == long.class) {
+                    argv[i] = Long.valueOf(0L);
+                } else if (types[i] == double.class) {
+                    argv[i] = Double.valueOf(0.0);
+                } else if (types[i] == float.class) {
+                    argv[i] = Float.valueOf(0f);
+                } else if (types[i] == int.class) {
+                    argv[i] = Integer.valueOf(0);
+                } else {
+                    argv[i] = null;
+                }
+            }
+            XposedBridge.log(TAG + ": addSatellite arity=" + types.length
+                    + " (12 参语义 + 默认尾参)");
+            sAdd.invoke(b, argv);
         } else if (p == 6) {
+            // addSatellite(svid, cn0DbHz, elevation, azimuth, carrierFrequencyHz, constellationType)
             sAdd.invoke(b, Integer.valueOf(svid), Float.valueOf(cn0),
-                    Float.valueOf(elev), Float.valueOf(azim), Float.valueOf(1575.42f),
+                    Float.valueOf(elev), Float.valueOf(azim), Float.valueOf(CARRIER_HZ),
                     Integer.valueOf(GnssStatus.CONSTELLATION_GPS));
         } else if (p == 5) {
+            // addSatellite(svid, cn0DbHz, elevation, azimuth, carrierFrequencyHz)
             sAdd.invoke(b, Integer.valueOf(svid), Float.valueOf(cn0),
-                    Float.valueOf(elev), Float.valueOf(azim),
-                    Integer.valueOf(GnssStatus.CONSTELLATION_GPS));
+                    Float.valueOf(elev), Float.valueOf(azim), Float.valueOf(CARRIER_HZ));
         } else {
             throw new NoSuchMethodException("unexpected addSatellite arity " + p);
         }
+    }
+
+    /** 12 参版本的实参：星座类型与 svid 各就其位，载频用 Hz，basebandCn0 在 0~63 dB-Hz */
+    private static Object[] args12(int svid, float cn0, float elev, float azim) {
+        float baseband = cn0 - 2f;
+        if (baseband < 0f) baseband = 0f;
+        if (baseband > 63f) baseband = 63f;
+        return new Object[]{
+                Integer.valueOf(GnssStatus.CONSTELLATION_GPS),
+                Integer.valueOf(svid),
+                Float.valueOf(cn0),
+                Float.valueOf(elev),
+                Float.valueOf(azim),
+                Boolean.TRUE,       // hasEphemerisData
+                Boolean.TRUE,       // hasAlmanacData
+                Boolean.TRUE,       // usedInFix
+                Boolean.TRUE,       // hasCarrierFrequency
+                Float.valueOf(CARRIER_HZ),
+                Boolean.TRUE,       // hasBasebandCn0DbHz
+                Float.valueOf(baseband)
+        };
     }
 }
