@@ -29,8 +29,37 @@ public final class LocationProbe {
         hookRequestUpdates(cl);
         hookSingleUpdate(cl);
         hookRemoveUpdates(cl);
+        hookSystemCallbacks(cl);
         hookPendingIntent(cl);
         logAllCalls(cl);
+    }
+
+    /**
+     * 接管期间的「单一来源」兜底。
+     *
+     * 连续注册（requestLocationUpdates）故意保留真实注册：如果在这里拦掉，
+     * 「结束」之后应用就拿不回真实定位了。代价是系统仍会回调真实位置，
+     * 所以在系统回调进入应用的入口（LocationManager$ListenerTransport）拦一次：
+     * 只在 isActive() 时丢弃，结束/暂停后真实回调照常放行。
+     *
+     * 该类是 AOSP 内部实现，OEM 可能改名；找不到时跳过，
+     * 行为回落到「真实事件可能混入合成流」，日志会记录 skipped。
+     */
+    private static void hookSystemCallbacks(ClassLoader cl) {
+        try {
+            Class<?> transport = XposedHelpers.findClass(
+                    "android.location.LocationManager$ListenerTransport", cl);
+            XposedBridge.hookAllMethods(transport, "onLocationChanged", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (!MotionEngine.isActive()) return;
+                    param.setResult(null);
+                }
+            });
+            XposedBridge.log(TAG + ": system location callbacks suppressed during takeover");
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": system callback guard skipped (" + t + ")");
+        }
     }
 
     /**
@@ -163,7 +192,13 @@ public final class LocationProbe {
                                     XposedBridge.log(TAG + ": requestSingleUpdate captured");
                                 }
                             }
-                        } catch (Throwable ignored) {
+                            // 接管期间单次请求只由合成流服务：必须短路原调用，
+                            // 否则系统稍后仍会回调一次真实位置，同一个 listener 会收到
+                            // 两次事件（一次合成、一次真实，且后者可能带真实坐标）。
+                            // 该方法返回 void，setResult(null) 即跳过原实现。
+                            param.setResult(null);
+                        } catch (Throwable t) {
+                            XposedBridge.log(TAG + ": requestSingleUpdate hook error " + t);
                         }
                     }
                 };
