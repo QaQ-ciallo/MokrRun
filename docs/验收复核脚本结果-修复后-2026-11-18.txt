@@ -1,0 +1,71 @@
+=== cfg_stop_timeout exit=0 ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze cancelled (config mode=0)
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+LOG MokrRun: config via broadcast speed=4.8;cadence=3.1 run=0 routeLen=57
+LOG MokrRun: command mode=0
+OBSERVED after broadcast mode=0 frozen=false pending=0
+OBSERVED after timeout mode=0
+PASS cfg_stop_timeout
+
+=== cfg_pause_timeout exit=0 ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze cancelled (config mode=2)
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=2 points=3
+LOG MokrRun: config via broadcast speed=4.8;cadence=3.1 run=2 routeLen=57
+LOG MokrRun: command mode=2
+OBSERVED after broadcast mode=2 frozen=false pending=0
+OBSERVED after timeout mode=2
+PASS cfg_pause_timeout
+
+=== tick_gap_sync exit=0 ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=9.6m steps=6 pos=30.000086,120.000000 seg=0/2
+OBSERVED dt about 5s meters=9.600000381469727 steps=6 expectedAtConfiguredCadence=6.200000246365866
+PASS tick_gap_sync
+
+=== same_type_sensor_unregister exit=0 ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: step listener + type=19 regs=1 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener + type=19 regs=2 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: step listener - type=19 regs=1
+OBSERVED remaining same-type sensor callbacks=1
+PASS same_type_sensor_unregister
+
+=== single_shot_system_callback exit=0 ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.removeUpdates [all]
+LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed during takeover
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestSingleUpdate captured
+LOG MokrRun: single-shot location listener released
+OBSERVED originalRequestSuppressed=true oneShotCallbacks=1
+PASS single_shot_system_callback

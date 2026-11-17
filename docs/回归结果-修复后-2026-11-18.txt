@@ -28,8 +28,27 @@ PASS tick_bounded_at_max_cadence
 === tick_huge_clock_gap_bounded (exit 0) ===
 LOG MokrRun: route applied, 3 points, start=30.0,120.0
 LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
-LOG MokrRun: tick dist=1.2m steps=0 pos=30.000011,120.000000 seg=0/2
+LOG MokrRun: tick dist=9.6m steps=6 pos=30.000086,120.000000 seg=0/2
 PASS tick_huge_clock_gap_bounded
+
+=== tick_gap_5s_keeps_sources_synced (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=9.6m steps=6 pos=30.000086,120.000000 seg=0/2
+PASS tick_gap_5s_keeps_sources_synced
+
+=== tick_gap_60s_keeps_sources_synced (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=9.6m steps=6 pos=30.000086,120.000000 seg=0/2
+PASS tick_gap_60s_keeps_sources_synced
+
+=== tick_normal_series_keeps_sources_synced (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.000011,120.000000 seg=0/2
+LOG MokrRun: tick dist=25.2m steps=16 pos=30.000227,120.000000 seg=0/2
+PASS tick_normal_series_keeps_sources_synced
 
 === freeze_timeout_restores_running (exit 0) ===
 LOG MokrRun: route applied, 3 points, start=30.0,120.0
@@ -63,6 +82,42 @@ LOG MokrRun: face freeze cancelled (command mode=2)
 LOG MokrRun: mode set to 2 (via command)
 PASS pause_command_cancels_freeze
 
+=== cfg_stop_command_cancels_freeze (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze cancelled (config mode=0)
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+LOG MokrRun: config via broadcast speed=4.8;cadence=3.1 run=0 routeLen=57
+LOG MokrRun: command mode=0
+PASS cfg_stop_command_cancels_freeze
+
+=== cfg_pause_command_cancels_freeze (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze cancelled (config mode=2)
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=2 points=3
+LOG MokrRun: config via broadcast speed=4.8;cadence=3.1 run=2 routeLen=57
+LOG MokrRun: command mode=2
+PASS cfg_pause_command_cancels_freeze
+
+=== cfg_continue_command_cancels_freeze (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze cancelled (config mode=1)
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: config via broadcast speed=4.8;cadence=3.1 run=1 routeLen=57
+LOG MokrRun: command mode=1
+PASS cfg_continue_command_cancels_freeze
+
+=== provider_change_during_freeze_cancels (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze cancelled (provider mode=0)
+PASS provider_change_during_freeze_cancels
+
 === provider_poll_keeps_freeze (exit 0) ===
 LOG MokrRun: route applied, 3 points, start=30.0,120.0
 LOG MokrRun: face check detected -> motion frozen (mode=2)
@@ -87,7 +142,7 @@ PASS route_end_reverses_without_teleport
 LOG MokrRun: route applied, 3 points, start=30.0,120.0
 LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
 LOG MokrRun: tick dist=1.2m steps=0 pos=30.001000,120.000993 seg=2/2
-LOG MokrRun: tick dist=25.2m steps=16 pos=30.001000,120.000743 seg=2/2
+LOG MokrRun: tick dist=25.2m steps=16 pos=30.001000,120.000744 seg=2/2
 LOG MokrRun: tick dist=49.2m steps=31 pos=30.001000,120.000494 seg=2/2
 LOG MokrRun: tick dist=73.2m steps=47 pos=30.001000,120.000245 seg=2/2
 PASS route_end_repeat_no_jump
@@ -133,39 +188,58 @@ LOG MokrRun: mode set to 1 (via command)
 PASS paused_speed_reports_zero
 
 === sensor_partial_unregister_keeps_step_types (exit 0) ===
-LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step listener + type=19 regs=1 total=1
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: motion engine started, tick=250ms
-LOG MokrRun: step listener + type=19 total=2
+LOG MokrRun: step listener + type=19 regs=1 total=2
 LOG MokrRun: step register suppressed (rs=1) type=19
-LOG MokrRun: step listener + type=18 total=2
+LOG MokrRun: step listener + type=18 regs=2 total=2
 LOG MokrRun: step register suppressed (rs=1) type=18
-LOG MokrRun: step listener - type=19
+LOG MokrRun: step listener - type=19 regs=1
 PASS sensor_partial_unregister_keeps_step_types
 
 === sensor_dedup_two_step_types (exit 0) ===
-LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step listener + type=19 regs=1 total=1
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: motion engine started, tick=250ms
-LOG MokrRun: step listener + type=18 total=1
+LOG MokrRun: step listener + type=18 regs=2 total=1
 LOG MokrRun: step register suppressed (rs=1) type=18
 PASS sensor_dedup_two_step_types
 
 === sensor_listener_exception_isolated (exit 0) ===
-LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step listener + type=19 regs=1 total=1
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: motion engine started, tick=250ms
-LOG MokrRun: step listener + type=19 total=2
+LOG MokrRun: step listener + type=19 regs=1 total=2
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: step delivery to com.mokrun.app.xposed.EngineRegression$Listener threw java.lang.IllegalStateException: fixture listener
 PASS sensor_listener_exception_isolated
 
 === sensor_unregister_all_stops_events (exit 0) ===
-LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step listener + type=19 regs=1 total=1
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: motion engine started, tick=250ms
 LOG MokrRun: step listener - total=0
 PASS sensor_unregister_all_stops_events
+
+=== sensor_same_type_two_sensors (exit 0) ===
+LOG MokrRun: step listener + type=19 regs=1 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener + type=19 regs=2 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: step listener - type=19 regs=1
+LOG MokrRun: step listener - type=19 regs=0
+LOG MokrRun: step listener - total=0
+PASS sensor_same_type_two_sensors
+
+=== sensor_equivalent_sensor_instance_unregister (exit 0) ===
+LOG MokrRun: step listener + type=18 regs=1 total=1
+LOG MokrRun: step register suppressed (rs=1) type=18
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener - type=18 regs=0
+LOG MokrRun: step listener - total=0
+PASS sensor_equivalent_sensor_instance_unregister
 
 === location_remove_updates_stops_delivery (exit 0) ===
 LOG MokrRun: route applied, 3 points, start=30.0,120.0
@@ -185,6 +259,8 @@ HOOK android.location.LocationManager.requestSingleUpdate [2]
 LOG MokrRun: hooked requestSingleUpdate #2
 HOOK android.location.LocationManager.removeUpdates [all]
 LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed during takeover
 HOOK android.location.LocationManager.requestLocationUpdates [4]
 LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
 HOOK android.location.LocationManager.getLastLocation [all]
@@ -212,6 +288,8 @@ HOOK android.location.LocationManager.requestSingleUpdate [2]
 LOG MokrRun: hooked requestSingleUpdate #2
 HOOK android.location.LocationManager.removeUpdates [all]
 LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed during takeover
 HOOK android.location.LocationManager.requestLocationUpdates [4]
 LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
 HOOK android.location.LocationManager.getLastLocation [all]
@@ -238,6 +316,8 @@ HOOK android.location.LocationManager.requestSingleUpdate [2]
 LOG MokrRun: hooked requestSingleUpdate #2
 HOOK android.location.LocationManager.removeUpdates [all]
 LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed during takeover
 HOOK android.location.LocationManager.requestLocationUpdates [4]
 LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
 HOOK android.location.LocationManager.getLastLocation [all]
@@ -246,6 +326,61 @@ LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.EngineRegress
 LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.EngineRegression$LocListener
 LOG MokrRun: emit failed java.lang.IllegalStateException: fixture location listener
 PASS location_listener_exception_isolated
+
+=== location_single_update_suppresses_system_request (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.removeUpdates [all]
+LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed during takeover
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestSingleUpdate captured
+LOG MokrRun: single-shot location listener released
+PASS location_single_update_suppresses_system_request
+
+=== system_callback_suppressed_during_takeover (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.removeUpdates [all]
+LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed during takeover
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: mode set to 0 (via command)
+PASS system_callback_suppressed_during_takeover
 
 === related_dialog_dismiss_resumes (exit 0) ===
 LOG MokrRun: route applied, 3 points, start=30.0,120.0
@@ -276,8 +411,8 @@ LOG MokrRunProbe: fixture -> �����ܲ���¼��Ч��ϵͳ��
     . com.mokrun.app.xposed.ResourceProbe.handleText: 174
     . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
     . java.lang.reflect.Method.invoke: 580
-    . com.mokrun.app.xposed.EngineRegression.reportText: 538
-    . com.mokrun.app.xposed.EngineRegression.main: 408
+    . com.mokrun.app.xposed.EngineRegression.reportText: 678
+    . com.mokrun.app.xposed.EngineRegression.main: 548
 
 LOG MokrRun: face check done -> resume mode=1
 PASS related_dialog_dismiss_resumes
@@ -311,8 +446,8 @@ LOG MokrRunProbe: fixture -> ���������ʶ��
     . com.mokrun.app.xposed.ResourceProbe.handleText: 174
     . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
     . java.lang.reflect.Method.invoke: 580
-    . com.mokrun.app.xposed.EngineRegression.reportText: 538
-    . com.mokrun.app.xposed.EngineRegression.main: 418
+    . com.mokrun.app.xposed.EngineRegression.reportText: 678
+    . com.mokrun.app.xposed.EngineRegression.main: 558
 
 LOG MokrRunProbe: Dialog.dismiss ignored, not the face dialog
 LOG MokrRun: face check done -> resume mode=1
@@ -367,8 +502,8 @@ LOG MokrRunProbe: fixture -> �����������������
     . com.mokrun.app.xposed.ResourceProbe.handleText: 174
     . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
     . java.lang.reflect.Method.invoke: 580
-    . com.mokrun.app.xposed.EngineRegression.reportText: 538
-    . com.mokrun.app.xposed.EngineRegression.main: 434
+    . com.mokrun.app.xposed.EngineRegression.reportText: 678
+    . com.mokrun.app.xposed.EngineRegression.main: 574
 
 PASS face_text_exclusion_still_applies
 
@@ -418,6 +553,6 @@ LOG MokrRun: config via Intent (onCreate) speed=3.5;cadence=2.6 run=1 routeLen=0
 PASS cfg_only_intent_keeps_route
 
 === gnss_payload_order_units (exit 0) ===
-LOG MokrRun: GnssStatus.Builder methods -> build() addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) addSatellite(int,float,float,float,float,int) addSatellite(int,float,float,float,float) 
+LOG MokrRun: GnssStatus.Builder methods -> addSatellite(int,float,float,float,float) addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) addSatellite(int,float,float,float,float,int) build() 
 LOG MokrRun: gnss addSatellite arity=12
 PASS gnss_payload_order_units

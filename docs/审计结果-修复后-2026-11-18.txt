@@ -60,25 +60,25 @@ LOG MokrRun: tick dist=1.2m steps=0 pos=30.001000,120.000990 seg=2/2
 PASS route_wrap_jump
 
 === unregister_other_sensor (exit 0) ===
-LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step listener + type=19 regs=1 total=1
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: motion engine started, tick=250ms
 PASS unregister_other_sensor
 
 === unregister_one_step_type (exit 0) ===
-LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step listener + type=19 regs=1 total=1
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: motion engine started, tick=250ms
-LOG MokrRun: step listener + type=18 total=1
+LOG MokrRun: step listener + type=18 regs=2 total=1
 LOG MokrRun: step register suppressed (rs=1) type=18
-LOG MokrRun: step listener - type=19
+LOG MokrRun: step listener - type=19 regs=1
 PASS unregister_one_step_type
 
 === listener_exception (exit 0) ===
-LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step listener + type=19 regs=1 total=1
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: motion engine started, tick=250ms
-LOG MokrRun: step listener + type=19 total=2
+LOG MokrRun: step listener + type=19 regs=1 total=2
 LOG MokrRun: step register suppressed (rs=1) type=19
 LOG MokrRun: step delivery to com.mokrun.app.xposed.ModuleAudit$Listener threw java.lang.IllegalStateException: fixture listener
 PASS listener_exception
@@ -94,7 +94,7 @@ LOG MokrRun: config via Intent (onNewIntent) speed=3.5;cadence=2.6 run=1 routeLe
 PASS new_intent
 
 === gnss_payload (exit 0) ===
-LOG MokrRun: GnssStatus.Builder methods -> build() addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) addSatellite(int,float,float,float,float,int) addSatellite(int,float,float,float,float) 
+LOG MokrRun: GnssStatus.Builder methods -> addSatellite(int,float,float,float,float) addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) addSatellite(int,float,float,float,float,int) build() 
 LOG MokrRun: gnss addSatellite arity=12
 OBSERVED satellite2 constellation=1.0 svid=2.0 carrierHz=1.57542E9 basebandCn0=27.0
 PASS gnss_payload
@@ -130,6 +130,8 @@ HOOK android.location.LocationManager.requestSingleUpdate [2]
 LOG MokrRun: hooked requestSingleUpdate #2
 HOOK android.location.LocationManager.removeUpdates [all]
 LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed during takeover
 HOOK android.location.LocationManager.requestLocationUpdates [4]
 LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
 HOOK android.location.LocationManager.getLastLocation [all]
