@@ -133,11 +133,6 @@ public class EngineRegression {
             count++;
         }
     }
-    /** 系统侧的 IRemoteCallback（onComplete）记录器 */
-    static class CallbackRecorder implements android.os.IRemoteCallback {
-        int completed;
-        public void sendResult(android.os.Bundle data) { completed++; }
-    }
     static void register(Listener listener, Sensor sensor) {
         new SensorHook.RegHook().beforeHookedMethod(param(null, listener, sensor, Integer.valueOf(0)));
     }
@@ -534,7 +529,9 @@ public class EngineRegression {
 
         } else if (which.equals("system_callback_suppressed_during_takeover")) {
             // 设备（API 36）上的真实形态：LocationManager$LocationListenerTransport
-            // 的 onLocationChanged(List<Location>, IRemoteCallback)
+            // 的 onLocationChanged(List<Location>, IRemoteCallback)；
+            // 完成回调使用 android.os 包里的**非公开代理实现类**（与设备 framework 一致），
+            // 因此「按实现类取 Method 再 invoke」会在这里失败。
             configure(1);
             LocationProbe.install(EngineRegression.class.getClassLoader());
             check(XposedBridge.hookCount(
@@ -542,21 +539,64 @@ public class EngineRegression {
                     "callback guard not installed on the device transport class");
             android.location.LocationManager$LocationListenerTransport transport =
                     new android.location.LocationManager$LocationListenerTransport();
-            CallbackRecorder cb = new CallbackRecorder();
+            android.os.RemoteCallbackProxyFixture.reset();
+            android.os.IRemoteCallback cb = android.os.RemoteCallbackProxyFixture.create();
             List<Location> batch = new ArrayList<Location>();
             batch.add(new Location("gps"));
+
             MethodHookParam p = param(transport, batch, cb);
             invokeBefore("android.location.LocationManager$LocationListenerTransport.onLocationChanged", p);
             if (!p.stopped) transport.onLocationChanged(batch, cb);      // 框架原实现
-            check(transport.delivered == 0, "real system callback delivered during takeover");
             check(p.stopped, "real system callback was not short-circuited during takeover");
-            check(cb.completed == 1, "system onComplete callback was not acknowledged");
+            check(transport.delivered == 0, "real system callback delivered during takeover");
+            check(android.os.RemoteCallbackProxyFixture.attempts == 1,
+                    "system onComplete not attempted exactly once: "
+                            + android.os.RemoteCallbackProxyFixture.attempts);
+            check(android.os.RemoteCallbackProxyFixture.completed == 1,
+                    "non-public Binder-shaped onComplete did not complete: "
+                            + android.os.RemoteCallbackProxyFixture.completed);
 
             MotionEngine.setMode(0);                                     // 结束：交还真实定位
+            android.os.RemoteCallbackProxyFixture.reset();
             p = param(transport, batch, cb);
             invokeBefore("android.location.LocationManager$LocationListenerTransport.onLocationChanged", p);
             if (!p.stopped) transport.onLocationChanged(batch, cb);
             check(transport.delivered == 1, "real system callback blocked after takeover ended");
+            check(android.os.RemoteCallbackProxyFixture.completed == 1,
+                    "framework completion must not be duplicated after takeover: "
+                            + android.os.RemoteCallbackProxyFixture.completed);
+
+        } else if (which.equals("completion_null_callback_handled")) {
+            // onComplete 为 null 时必须正常处理：不抛异常，仍短路投递
+            configure(1);
+            LocationProbe.install(EngineRegression.class.getClassLoader());
+            android.location.LocationManager$LocationListenerTransport transport =
+                    new android.location.LocationManager$LocationListenerTransport();
+            List<Location> batch = new ArrayList<Location>();
+            batch.add(new Location("gps"));
+            MethodHookParam p = param(transport, batch, null);
+            invokeBefore("android.location.LocationManager$LocationListenerTransport.onLocationChanged", p);
+            if (!p.stopped) transport.onLocationChanged(batch, null);
+            check(p.stopped, "null onComplete blocked the short-circuit");
+            check(transport.delivered == 0, "null onComplete leaked real delivery");
+
+        } else if (which.equals("completion_notify_failure_logged")) {
+            // 补发确认抛异常：必须留下可识别日志，且仍然不投递真实位置
+            configure(1);
+            LocationProbe.install(EngineRegression.class.getClassLoader());
+            android.location.LocationManager$LocationListenerTransport transport =
+                    new android.location.LocationManager$LocationListenerTransport();
+            android.os.RemoteCallbackProxyFixture.reset();
+            android.os.IRemoteCallback cb = android.os.RemoteCallbackProxyFixture.createFailing();
+            List<Location> batch = new ArrayList<Location>();
+            batch.add(new Location("gps"));
+            MethodHookParam p = param(transport, batch, cb);
+            invokeBefore("android.location.LocationManager$LocationListenerTransport.onLocationChanged", p);
+            if (!p.stopped) transport.onLocationChanged(batch, cb);
+            check(p.stopped, "notify failure prevented the short-circuit");
+            check(transport.delivered == 0, "notify failure leaked real delivery");
+            check(android.os.RemoteCallbackProxyFixture.attempts == 1,
+                    "notify failure path did not attempt completion");
 
         } else if (which.equals("legacy_system_callback_suppressed")) {
             // Android 10 及更早的旧类名/旧签名：候选类名回退路径
@@ -798,6 +838,8 @@ CASES = [
     "location_listener_exception_isolated",
     "location_single_update_suppresses_system_request",
     "system_callback_suppressed_during_takeover",
+    "completion_null_callback_handled",
+    "completion_notify_failure_logged",
     "legacy_system_callback_suppressed",
     # 弹窗冻结与日志限流（问题 13、14）
     "related_dialog_dismiss_resumes",
@@ -832,6 +874,10 @@ def main():
         run = subprocess.run([java, "-cp", str(base), "com.mokrun.app.xposed.EngineRegression", case],
                              capture_output=True, encoding="utf-8", errors="replace", timeout=60)
         results.append(f"=== {case} (exit {run.returncode}) ===\n{run.stdout}{run.stderr}")
+        if case == "completion_notify_failure_logged" and "onComplete notify failed" not in (run.stdout + run.stderr):
+            failures += 1
+            print("FAIL completion_notify_failure_logged: no identifiable failure log")
+            continue
         if run.returncode:
             failures += 1
             reason = next((line.strip() for line in (run.stdout + run.stderr).splitlines()

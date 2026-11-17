@@ -345,6 +345,40 @@ package android.os;
 /** 系统在 onLocationChanged(List, IRemoteCallback) 里等待的完成回调（AOSP IRemoteCallback.aidl） */
 public interface IRemoteCallback { void sendResult(Bundle data); }
 """,
+    "android/os/RemoteCallbackProxyFixture.java": """
+package android.os;
+/**
+ * 设备 framework 里的真实可见性形态（见第三轮验收证据）：
+ *   android.os.IRemoteCallback            public
+ *   android.os.IRemoteCallback$Stub$Proxy 非 public，sendResult 为 public
+ * 非公开实现类 + 公开接口，是跨包反射 invoke 的反例来源。
+ * 本夹具把它们放在 android.os 包（与生产代码不同包），
+ * 因此任何「按实现类取 Method 再 invoke」的写法都会在这里失败。
+ */
+public final class RemoteCallbackProxyFixture {
+    public static int completed;
+    public static int attempts;
+    public static void reset() { completed = 0; attempts = 0; }
+
+    /** 正常代理形态：非公开静态内部类实现公开接口 */
+    public static IRemoteCallback create() { return new Proxy(); }
+    /** sendResult 抛异常的实现（同样非公开） */
+    public static IRemoteCallback createFailing() { return new Failing(); }
+
+    private RemoteCallbackProxyFixture() {}
+
+    private static final class Proxy implements IRemoteCallback {
+        public void sendResult(Bundle data) { attempts++; completed++; }
+    }
+
+    private static final class Failing implements IRemoteCallback {
+        public void sendResult(Bundle data) {
+            attempts++;
+            throw new IllegalStateException("fixture sendResult failure");
+        }
+    }
+}
+""",
     "android/location/LocationManager$LocationListenerTransport.java": """
 package android.location;
 import java.util.List;
