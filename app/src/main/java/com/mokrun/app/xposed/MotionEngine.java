@@ -80,10 +80,14 @@ public final class MotionEngine {
     private static volatile int sGpsAccStatus = 0;
     /** 人脸识别期间冻结状态 */
     private static volatile boolean sFaceFrozen = false;
+    /** 冻结前的模式；冻结期间若 App 侧改了意图（provider 的 run 变化），这里会被更新 */
     private static volatile int sPrevMode = 1;
     private static Handler sFaceHandler = null;
     /** 人脸识别冻结最长 3 分钟，超时自动恢复（防止卡死在暂停态） */
     private static final long FACE_FREEZE_MS = 180000L;
+    /** provider 最近一次读到的 run 值，用于区分「App 改了状态」和「App prefs 是旧的」 */
+    private static final int PROVIDER_MODE_UNKNOWN = Integer.MIN_VALUE;
+    private static volatile int sProviderMode = PROVIDER_MODE_UNKNOWN;
 
     /** 路线：index 0 是起点，后面是途经点 */
     private static volatile double[] sLat = new double[]{39.908700};
@@ -126,7 +130,13 @@ public final class MotionEngine {
 
     public static double lat() { return sCurLat; }
     public static double lon() { return sCurLon; }
-    public static float speedNow() { return sSpeed; }
+
+    /**
+     * 当前运动速度。配置速度只用于推进计算：暂停/未开始时人是不动的，
+     * 这里必须回 0，否则目标应用会看到「位置冻结但速度为 4.8 m/s」的矛盾数据。
+     */
+    public static float speedNow() { return isRunningNow() ? sSpeed : 0f; }
+
     public static long steps() { return sSteps; }
 
     /** 伪装卫星数：14 上下 ±2 抖动（真实 GPS 不会恒定） */
@@ -160,8 +170,9 @@ public final class MotionEngine {
     public static void freezeForFace() {
         if (sFaceFrozen) return;
         sFaceFrozen = true;
+        // 恢复目标 = 冻结前的模式；未开始时保持未开始，暂停时保持暂停
         sPrevMode = sMode;
-        setMode(2);
+        applyInternalMode(2);
         XposedBridge.log(TAG + ": face check detected -> motion frozen (mode=2)");
         try {
             if (sFaceHandler == null) sFaceHandler = new Handler(Looper.getMainLooper());
@@ -177,16 +188,41 @@ public final class MotionEngine {
         }
     }
 
-    /** 识别做完后恢复原来的模式（默认回 1 = 继续跑） */
+    /** 识别做完后恢复冻结前的模式。不会把「未开始」猜成「运行」 */
     public static void resumeAfterFace() {
         if (!sFaceFrozen) return;
         sFaceFrozen = false;
-        int back = sPrevMode == 0 ? 1 : sPrevMode;
-        setMode(back);
+        int back = sPrevMode;
+        applyInternalMode(back);
         XposedBridge.log(TAG + ": face check done -> resume mode=" + back);
     }
 
     public static boolean faceFrozen() { return sFaceFrozen; }
+
+    /**
+     * 撤销冻结但不改变当前模式。
+     * 用户按下暂停/结束/继续，或者冻结超时任务被替换时使用——
+     * 之后再来的旧弹窗关闭事件、旧超时任务都不能把状态改回去。
+     */
+    private static void cancelFaceFreeze(String reason) {
+        if (!sFaceFrozen) return;
+        sFaceFrozen = false;
+        Handler h = sFaceHandler;
+        if (h != null) {
+            try {
+                h.removeCallbacksAndMessages(null);
+            } catch (Throwable ignored) {
+            }
+        }
+        XposedBridge.log(TAG + ": face freeze cancelled (" + reason + ")");
+    }
+
+    /** 引擎自己的状态切换（冻结/恢复），不走「显式命令」的取消冻结逻辑 */
+    private static void applyInternalMode(int mode) {
+        sMode = inRange(mode, MODE_MIN, MODE_MAX) ? mode : 0;
+        sIntentMode = true;
+        sRunCheckedAt = System.currentTimeMillis();
+    }
 
     public static boolean hasRoute() { return sLat != null && sLat.length > 1; }
 
@@ -210,12 +246,39 @@ public final class MotionEngine {
         if (now - sRunCheckedAt < 400L) return sMode;
         sRunCheckedAt = now;
         if (sCtx == null) return sMode;
-        if (readProvider()) return sMode;
+        Integer run = readProvider();
+        if (run != null) {
+            applyProviderMode(run.intValue());
+            return sMode;
+        }
         // provider 不可用（MIUI 拦跨应用 provider）：
         // 若 mode 是 Intent 明确指定的，就保持不变，否则才归零
         if (sIntentMode) return sMode;
         sMode = 0;
         return sMode;
+    }
+
+    /**
+     * provider 里的 run 是「App 侧的用户意图」，但只有它**发生变化**时
+     * 才代表一次新的用户操作。值没变说明 App 的 prefs 还是旧的
+     * （例如用户用 adb 广播暂停、或引擎自己为了人脸识别冻结），
+     * 此时循环读取不能把引擎里更新的状态覆盖回去。
+     */
+    private static void applyProviderMode(int run) {
+        if (!inRange(run, MODE_MIN, MODE_MAX)) return;
+        boolean first = sProviderMode == PROVIDER_MODE_UNKNOWN;
+        boolean changed = !first && run != sProviderMode;
+        sProviderMode = run;
+        if (sFaceFrozen) {
+            // 冻结期间不解除冻结，但把用户的最新意图记成恢复目标
+            if (!first && changed) sPrevMode = run;
+            return;
+        }
+        if (first) {
+            if (!sIntentMode) sMode = run;
+            return;
+        }
+        if (changed) sMode = run;
     }
 
 
@@ -225,6 +288,9 @@ public final class MotionEngine {
             XposedBridge.log(TAG + ": mode rejected (" + mode + ")");
             return;
         }
+        // 显式命令优先于内部冻结：用户已经用暂停/继续/结束表达了新意图，
+        // 不能再等 3 分钟超时或某次旧弹窗关闭把状态改回冻结前的值。
+        cancelFaceFreeze("command mode=" + mode);
         sMode = mode;
         sIntentMode = true;      // 一旦被明确设置，就由它主导，不再回落
         sRunCheckedAt = System.currentTimeMillis();
@@ -235,7 +301,7 @@ public final class MotionEngine {
         Location l = new Location("gps");
         l.setLatitude(sCurLat);
         l.setLongitude(sCurLon);
-        l.setSpeed(sSpeed);
+        l.setSpeed(speedNow());
         l.setAccuracy(3.0f);
         l.setAltitude(altitude());
         l.setTime(System.currentTimeMillis());
@@ -296,14 +362,14 @@ public final class MotionEngine {
      * App 有常驻前台服务，provider 一定活着，MIUI 不会拦冷启动。
      * 传的都是 App 本地 prefs 里的值，读写都不需要特殊权限。
      */
-    private static boolean readProvider() {
-        if (sCtx == null) return false;
+    private static Integer readProvider() {
+        if (sCtx == null) return null;
         android.database.Cursor c = null;
         try {
             c = sCtx.getContentResolver().query(
                     android.net.Uri.parse("content://com.mokrun.app.config/config"),
                     null, null, null, null);
-            if (c == null || !c.moveToFirst()) return false;
+            if (c == null || !c.moveToFirst()) return null;
             float sp = c.getFloat(0);
             float cd = c.getFloat(1);
             float st = c.getFloat(2);
@@ -312,12 +378,11 @@ public final class MotionEngine {
             int run = c.getInt(6);
             applyOriginRoute(origin, route);
             applyConfigInner(sp, cd, st);
-            sMode = run;
             sRunCheckedAt = System.currentTimeMillis();
-            return true;
+            return Integer.valueOf(run);
         } catch (Throwable t) {
             XposedBridge.log(TAG + ": provider read failed " + t);
-            return false;
+            return null;
         } finally {
             if (c != null) {
                 try { c.close(); } catch (Throwable ignored) {}
@@ -331,11 +396,11 @@ public final class MotionEngine {
      */
     private static synchronized boolean tryRead() {
         if (sCtx == null) return false;
-        if (readProvider()) {
-            sConfigLoaded = true;
-            return true;
-        }
-        return false;
+        Integer run = readProvider();
+        if (run == null) return false;
+        applyProviderMode(run.intValue());
+        sConfigLoaded = true;
+        return true;
     }
 
 
