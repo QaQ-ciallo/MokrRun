@@ -36,12 +36,26 @@ public final class IntentBridge {
             Class<?> activity = XposedHelpers.findClass("android.app.Activity", cl);
             XposedBridge.hookAllMethods(activity, "onCreate", new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
-                    read(param.thisObject, "onCreate");
+                    Object obj = param.thisObject;
+                    if (!(obj instanceof Activity)) return;
+                    // onCreate 没有 Intent 参数：启动 Intent 只能从 Activity.getIntent() 取
+                    read(((Activity) obj).getIntent(), "onCreate");
                 }
             });
             XposedBridge.hookAllMethods(activity, "onNewIntent", new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
-                    read(param.thisObject, "onNewIntent");
+                    // Android 官方文档：onNewIntent 期间 getIntent() 仍返回**旧的**启动 Intent，
+                    // 除非应用自己调用了 setIntent(newIntent)。
+                    // 所以这里必须读回调参数，不能读 Activity.getIntent()。
+                    Intent incoming = null;
+                    for (int i = 0; i < param.args.length; i++) {
+                        if (param.args[i] instanceof Intent) {
+                            incoming = (Intent) param.args[i];
+                            break;
+                        }
+                    }
+                    if (incoming == null) return;
+                    read(incoming, "onNewIntent");
                 }
             });
             XposedBridge.log(TAG + ": intent bridge installed");
@@ -50,10 +64,8 @@ public final class IntentBridge {
         }
     }
 
-    private static void read(Object obj, String from) {
+    private static void read(Intent it, String from) {
         try {
-            if (!(obj instanceof Activity)) return;
-            Intent it = ((Activity) obj).getIntent();
             if (it == null) return;
             String cfg = it.getStringExtra(EX_CFG);
             if (cfg == null || cfg.length() < 5) return;

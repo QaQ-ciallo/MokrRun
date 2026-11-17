@@ -484,7 +484,7 @@ public final class MotionEngine {
         if (alt > ALT_MIN) sAlt = inRange(alt, ALT_MIN, ALT_MAX) ? alt : sAlt;
         // acc<0 是「不伪装、保留真实值」的显式约定（见 SDKLocationHook），因此接受 -1
         if (acc >= ACC_MIN) sGpsAccStatus = inRange(acc, ACC_MIN, ACC_MAX) ? acc : sGpsAccStatus;
-        applyOriginRoute(origin, waypoints);
+        applyOriginRouteIfGiven(origin, waypoints);
         applyConfigInner(sp, cd, st);
         if (inRange(run, MODE_MIN, MODE_MAX)) {
             sMode = run;
@@ -524,6 +524,17 @@ public final class MotionEngine {
         } else if (stride > 0f) {
             XposedBridge.log(TAG + ": stride rejected (" + stride + ")");
         }
+    }
+
+    /**
+     * 只有显式携带了 origin 或 route 才动路线。
+     *
+     * 参数为 null 表示「这次下发没有说话权」（例如只带 cfg 的 Intent），
+     * 空字符串才是「用户清空了路线」。混用会让一个只改速度的 Intent 把路线清掉。
+     */
+    private static void applyOriginRouteIfGiven(String origin, String waypoints) {
+        if (origin == null && waypoints == null) return;
+        applyOriginRoute(origin, waypoints);
     }
 
     /** 起点 + 途经点 → 路线数组；起点变了就重置到起点 */
