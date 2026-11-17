@@ -74,7 +74,8 @@ public final class ConfigSync {
                 + ";spdmax=5.0"
                 + ";sat=14"
                 + ";qr=2"
-                + ";acc=0";
+                + ";acc=0"
+                + ";rs=1";
     }
 
     /**

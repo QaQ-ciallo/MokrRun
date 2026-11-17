@@ -27,3 +27,8 @@ patch_*.py
 inspect*.py
 tmp_*
 *.log
+
+# python caches
+__pycache__/
+*.pyc
+

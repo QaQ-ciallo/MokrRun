@@ -45,8 +45,8 @@ public final class MotionEngine {
      * 速度与质量两个变量没分开。质量伪装（qr/sat/acc）生效后，5.0 m/s 是正常的。
      */
     private static volatile float sSpeedMax = 5.0f;
-    /** 是否屏蔽真实传感器注册（步数双源 A/B 开关，cfg 里 rs=1 打开） */
-    private static volatile boolean sSuppressRealSteps = false;
+    /** 默认只投递合成步数；rs=0 仅用于诊断双源，正常运行必须保持 rs=1。 */
+    private static volatile boolean sSuppressRealSteps = true;
     /** 跨场次累计的步数基数：保证 TYPE_STEP_COUNTER 单调递增，不会「变小」 */
     private static volatile long sStepBase = 0;
     /** 伪装海拔（米）。真实 Location 里没设 altitude，取出来是 0.0，本身就很可疑 */
