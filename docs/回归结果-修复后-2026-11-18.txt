@@ -1,0 +1,423 @@
+=== cadence_infinity_sanitized (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: cadence rejected (Infinity)
+LOG MokrRun: stride rejected (Infinity)
+LOG MokrRun: applied from intent speed=4.8 cadence=2.2 stride=1.1 sat=14 mode=1 points=3
+PASS cadence_infinity_sanitized
+
+=== tick_survives_infinite_cadence (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: cadence rejected (Infinity)
+LOG MokrRun: applied from intent speed=4.8 cadence=2.2 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=4.8m steps=2 pos=30.000043,120.000000 seg=0/2
+PASS tick_survives_infinite_cadence
+
+=== nonfinite_and_negative_config_rejected (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+PASS nonfinite_and_negative_config_rejected
+
+=== tick_bounded_at_max_cadence (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: cadence rejected (10000.0)
+LOG MokrRun: applied from intent speed=4.8 cadence=2.2 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=4.8m steps=2 pos=30.000043,120.000000 seg=0/2
+PASS tick_bounded_at_max_cadence
+
+=== tick_huge_clock_gap_bounded (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.000011,120.000000 seg=0/2
+PASS tick_huge_clock_gap_bounded
+
+=== freeze_timeout_restores_running (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze timeout -> resuming
+LOG MokrRun: face check done -> resume mode=1
+PASS freeze_timeout_restores_running
+
+=== freeze_timeout_from_idle_keeps_idle (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze timeout -> resuming
+LOG MokrRun: face check done -> resume mode=0
+PASS freeze_timeout_from_idle_keeps_idle
+
+=== stop_command_cancels_freeze (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze cancelled (command mode=0)
+LOG MokrRun: mode set to 0 (via command)
+PASS stop_command_cancels_freeze
+
+=== pause_command_cancels_freeze (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze cancelled (command mode=2)
+LOG MokrRun: mode set to 2 (via command)
+PASS pause_command_cancels_freeze
+
+=== provider_poll_keeps_freeze (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+PASS provider_poll_keeps_freeze
+
+=== provider_poll_keeps_explicit_pause (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: mode set to 2 (via command)
+PASS provider_poll_keeps_explicit_pause
+
+=== provider_change_still_followed (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+PASS provider_change_still_followed
+
+=== route_end_reverses_without_teleport (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.001000,120.000990 seg=2/2
+PASS route_end_reverses_without_teleport
+
+=== route_end_repeat_no_jump (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.001000,120.000993 seg=2/2
+LOG MokrRun: tick dist=25.2m steps=16 pos=30.001000,120.000743 seg=2/2
+LOG MokrRun: tick dist=49.2m steps=31 pos=30.001000,120.000494 seg=2/2
+LOG MokrRun: tick dist=73.2m steps=47 pos=30.001000,120.000245 seg=2/2
+PASS route_end_repeat_no_jump
+
+=== clear_route_clears_points (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: origin/route cleared
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=0
+PASS clear_route_clears_points
+
+=== origin_only_does_not_advance (exit 0) ===
+LOG MokrRun: route applied, 1 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=1
+LOG MokrRun: idle mode=1 intentMode=true sConfigLoaded=true
+PASS origin_only_does_not_advance
+
+=== no_route_rejects_run (exit 0) ===
+LOG MokrRun: origin/route cleared
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=0
+LOG MokrRun: idle mode=1 intentMode=true sConfigLoaded=true
+PASS no_route_rejects_run
+
+=== route_switch_resets_progress (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=4.8m steps=3 pos=30.000043,120.000000 seg=0/2
+LOG MokrRun: route applied, 2 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=2
+PASS route_switch_resets_progress
+
+=== same_route_keeps_progress (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=4.8m steps=3 pos=30.000043,120.000000 seg=0/2
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+PASS same_route_keeps_progress
+
+=== paused_speed_reports_zero (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=2 points=3
+LOG MokrRun: mode set to 1 (via command)
+PASS paused_speed_reports_zero
+
+=== sensor_partial_unregister_keeps_step_types (exit 0) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener + type=19 total=2
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: step listener + type=18 total=2
+LOG MokrRun: step register suppressed (rs=1) type=18
+LOG MokrRun: step listener - type=19
+PASS sensor_partial_unregister_keeps_step_types
+
+=== sensor_dedup_two_step_types (exit 0) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener + type=18 total=1
+LOG MokrRun: step register suppressed (rs=1) type=18
+PASS sensor_dedup_two_step_types
+
+=== sensor_listener_exception_isolated (exit 0) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener + type=19 total=2
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: step delivery to com.mokrun.app.xposed.EngineRegression$Listener threw java.lang.IllegalStateException: fixture listener
+PASS sensor_listener_exception_isolated
+
+=== sensor_unregister_all_stops_events (exit 0) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener - total=0
+PASS sensor_unregister_all_stops_events
+
+=== location_remove_updates_stops_delivery (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.removeUpdates [all]
+LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.EngineRegression$LocListener
+LOG MokrRun: location listener removed
+LOG MokrRun: removeUpdates captured com.mokrun.app.xposed.EngineRegression$LocListener
+PASS location_remove_updates_stops_delivery
+
+=== location_single_shot_delivered_once (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.removeUpdates [all]
+LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestSingleUpdate captured
+LOG MokrRun: single-shot location listener released
+PASS location_single_shot_delivered_once
+
+=== location_listener_exception_isolated (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.removeUpdates [all]
+LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.EngineRegression$LocListener
+LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.EngineRegression$LocListener
+LOG MokrRun: emit failed java.lang.IllegalStateException: fixture location listener
+PASS location_listener_exception_isolated
+
+=== related_dialog_dismiss_resumes (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Dialog.show [0]
+LOG MokrRunProbe: hooked Dialog.show
+HOOK android.app.Dialog.dismiss [0]
+LOG MokrRunProbe: hooked Dialog.dismiss
+LOG MokrRunProbe: androidx.appcompat.app.AlertDialog$Builder.setMessage skipped
+LOG MokrRunProbe: com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage skipped
+HOOK android.widget.PopupWindow.showAtLocation [4]
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+HOOK android.widget.PopupWindow.showAsDropDown [1]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.showAsDropDown [3]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.dismiss [0]
+LOG MokrRunProbe: hooked PopupWindow.dismiss
+HOOK android.widget.Toast.makeText [3]
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+LOG MokrRunProbe: FACE-CHECK dialog -> �����ܲ���¼��Ч��ϵͳ��⵽����;��2������ʶ�𳬳�150������ʶ��Χ
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRunProbe: fixture -> �����ܲ���¼��Ч��ϵͳ��⵽����;��2������ʶ�𳬳�150������ʶ��Χ
+    . java.lang.Thread.getStackTrace: 2451
+    . com.mokrun.app.xposed.ResourceProbe.log: 232
+    . com.mokrun.app.xposed.ResourceProbe.handleTexts: 180
+    . com.mokrun.app.xposed.ResourceProbe.handleText: 174
+    . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
+    . java.lang.reflect.Method.invoke: 580
+    . com.mokrun.app.xposed.EngineRegression.reportText: 538
+    . com.mokrun.app.xposed.EngineRegression.main: 408
+
+LOG MokrRun: face check done -> resume mode=1
+PASS related_dialog_dismiss_resumes
+
+=== unrelated_dialog_dismiss_keeps_freeze (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Dialog.show [0]
+LOG MokrRunProbe: hooked Dialog.show
+HOOK android.app.Dialog.dismiss [0]
+LOG MokrRunProbe: hooked Dialog.dismiss
+LOG MokrRunProbe: androidx.appcompat.app.AlertDialog$Builder.setMessage skipped
+LOG MokrRunProbe: com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage skipped
+HOOK android.widget.PopupWindow.showAtLocation [4]
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+HOOK android.widget.PopupWindow.showAsDropDown [1]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.showAsDropDown [3]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.dismiss [0]
+LOG MokrRunProbe: hooked PopupWindow.dismiss
+HOOK android.widget.Toast.makeText [3]
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+LOG MokrRunProbe: FACE-CHECK dialog -> ���������ʶ��
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRunProbe: fixture -> ���������ʶ��
+    . java.lang.Thread.getStackTrace: 2451
+    . com.mokrun.app.xposed.ResourceProbe.log: 232
+    . com.mokrun.app.xposed.ResourceProbe.handleTexts: 180
+    . com.mokrun.app.xposed.ResourceProbe.handleText: 174
+    . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
+    . java.lang.reflect.Method.invoke: 580
+    . com.mokrun.app.xposed.EngineRegression.reportText: 538
+    . com.mokrun.app.xposed.EngineRegression.main: 418
+
+LOG MokrRunProbe: Dialog.dismiss ignored, not the face dialog
+LOG MokrRun: face check done -> resume mode=1
+PASS unrelated_dialog_dismiss_keeps_freeze
+
+=== dialog_dismiss_without_freeze_noop (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Dialog.show [0]
+LOG MokrRunProbe: hooked Dialog.show
+HOOK android.app.Dialog.dismiss [0]
+LOG MokrRunProbe: hooked Dialog.dismiss
+LOG MokrRunProbe: androidx.appcompat.app.AlertDialog$Builder.setMessage skipped
+LOG MokrRunProbe: com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage skipped
+HOOK android.widget.PopupWindow.showAtLocation [4]
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+HOOK android.widget.PopupWindow.showAsDropDown [1]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.showAsDropDown [3]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.dismiss [0]
+LOG MokrRunProbe: hooked PopupWindow.dismiss
+HOOK android.widget.Toast.makeText [3]
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+PASS dialog_dismiss_without_freeze_noop
+
+=== face_text_exclusion_still_applies (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Dialog.show [0]
+LOG MokrRunProbe: hooked Dialog.show
+HOOK android.app.Dialog.dismiss [0]
+LOG MokrRunProbe: hooked Dialog.dismiss
+LOG MokrRunProbe: androidx.appcompat.app.AlertDialog$Builder.setMessage skipped
+LOG MokrRunProbe: com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage skipped
+HOOK android.widget.PopupWindow.showAtLocation [4]
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+HOOK android.widget.PopupWindow.showAsDropDown [1]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.showAsDropDown [3]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.dismiss [0]
+LOG MokrRunProbe: hooked PopupWindow.dismiss
+HOOK android.widget.Toast.makeText [3]
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+LOG MokrRunProbe: fixture -> ������������������ʶ����ע��
+    . java.lang.Thread.getStackTrace: 2451
+    . com.mokrun.app.xposed.ResourceProbe.log: 232
+    . com.mokrun.app.xposed.ResourceProbe.handleTexts: 180
+    . com.mokrun.app.xposed.ResourceProbe.handleText: 174
+    . jdk.internal.reflect.DirectMethodHandleAccessor.invoke: 103
+    . java.lang.reflect.Method.invoke: 580
+    . com.mokrun.app.xposed.EngineRegression.reportText: 538
+    . com.mokrun.app.xposed.EngineRegression.main: 434
+
+PASS face_text_exclusion_still_applies
+
+=== log_throttle_keeps_detection (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRunProbe: FACE-CHECK dialog -> ���������ʶ��
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+PASS log_throttle_keeps_detection
+
+=== new_intent_applies_callback_intent (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+HOOK android.app.Activity.onCreate [all]
+HOOK android.app.Activity.onNewIntent [all]
+LOG MokrRun: intent bridge installed
+LOG MokrRun: applied from intent speed=3.5 cadence=2.6 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: config via Intent (onNewIntent) speed=3.5;cadence=2.6 run=1 routeLen=57
+PASS new_intent_applies_callback_intent
+
+=== on_create_reads_activity_intent (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+HOOK android.app.Activity.onCreate [all]
+HOOK android.app.Activity.onNewIntent [all]
+LOG MokrRun: intent bridge installed
+LOG MokrRun: applied from intent speed=3.5 cadence=2.6 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: config via Intent (onCreate) speed=3.5;cadence=2.6 run=1 routeLen=57
+PASS on_create_reads_activity_intent
+
+=== new_intent_without_extras_ignored (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+HOOK android.app.Activity.onCreate [all]
+HOOK android.app.Activity.onNewIntent [all]
+LOG MokrRun: intent bridge installed
+PASS new_intent_without_extras_ignored
+
+=== cfg_only_intent_keeps_route (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Activity.onCreate [all]
+HOOK android.app.Activity.onNewIntent [all]
+LOG MokrRun: intent bridge installed
+LOG MokrRun: applied from intent speed=3.5 cadence=2.6 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: config via Intent (onCreate) speed=3.5;cadence=2.6 run=1 routeLen=0
+PASS cfg_only_intent_keeps_route
+
+=== gnss_payload_order_units (exit 0) ===
+LOG MokrRun: GnssStatus.Builder methods -> build() addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) addSatellite(int,float,float,float,float,int) addSatellite(int,float,float,float,float) 
+LOG MokrRun: gnss addSatellite arity=12
+PASS gnss_payload_order_units
