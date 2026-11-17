@@ -51,8 +51,12 @@ public final class MotionEngine {
     private static final int MODE_MAX = 2;
     /** 单 tick 最多补多少步：即使配置/时钟异常，主线程也只被占用有限次迭代 */
     private static final int STEP_MAX_PER_TICK = 64;
-    /** 步数累计使用的 dt 上限：长时间卡顿恢复时不能一次性补几百步 */
-    private static final double STEP_DT_MAX = 2.0;
+    /**
+     * 单个 tick 的有效运动时间上限。
+     * 距离与步数必须共用同一个时间窗：曾经距离用完整 dt（最长 120 s）、
+     * 步数只用 min(dt,2 s)，卡顿 5 秒就得到「24 米 / 6 步」这种不同源的数据。
+     */
+    private static final double DT_MAX = 2.0;
 
     private static volatile float sSpeed = 2.5f;
     private static volatile float sCadence = 2.2f;
@@ -492,7 +496,7 @@ public final class MotionEngine {
         applyConfigInner(sp, cd, st);
         if (inRange(run, MODE_MIN, MODE_MAX)) {
             // 带配置的控制命令同样是显式命令：悬浮窗的「结束/暂停/继续」会带上
-            // cfg/origin/route 走 CommandReceiver → 这里（而不是 setMode）。
+            // cfg/origin/route 走 CommandReceiver → 这里（不是 setMode）。
             // 必须在这里撤销旧的冻结与它的 3 分钟超时，否则新状态会被定时任务覆盖。
             cancelFaceFreeze("config mode=" + run);
             sMode = run;
@@ -670,15 +674,17 @@ public final class MotionEngine {
         long now = System.currentTimeMillis();
         double dt = sLastTick == 0L ? TICK_MS / 1000.0 : (now - sLastTick) / 1000.0;
         sLastTick = now;
-        if (dt <= 0 || dt > 120.0) {
-            dt = TICK_MS / 1000.0;
-        }
+        if (dt <= 0) dt = TICK_MS / 1000.0;
+        // 有效运动时间：距离、位置推进与步数都只按这一个窗口计算。
+        // 超过 DT_MAX 的部分视为调度停摆，本 tick 不再补算（不做无条件补齐），
+        // 这样里程与步数在任何间隔下都保持同源。
+        double effDt = Math.min(dt, DT_MAX);
 
-        double stepDist = sSpeed * dt;
+        double stepDist = sSpeed * effDt;
         sDistTotal += stepDist;
         advanceAlongRoute(stepDist);
 
-        sStepAccum += sCadence * Math.min(dt, STEP_DT_MAX);
+        sStepAccum += sCadence * effDt;
         if (Double.isNaN(sStepAccum) || sStepAccum < 0) sStepAccum = 0;
         if (sStepAccum > STEP_MAX_PER_TICK) {
             XposedBridge.log(TAG + ": step backlog dropped (" + sStepAccum + ")");
