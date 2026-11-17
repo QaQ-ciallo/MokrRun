@@ -231,6 +231,11 @@ $env:MOKR_KS_PASS = "yourpass"
 
 ## 📝 更新日志
 
+### v1.0.119
+
+- 修复系统定位回调 hook 挂错类名（P1）：API 30+ 的载体是 `LocationManager$LocationListenerTransport.onLocationChanged(List<Location>, IRemoteCallback)`，此前按 Android 10 的旧命名挂钩，导致接管期间真实定位事件完全没被拦截
+- 改为候选类名（Android 10 旧命名 / Android 11~16 新命名）+ 对 `onLocationChanged` 所有重载挂钩，并补发系统等待的 `onComplete`；一个载体都没命中时明确日志告警
+
 ### v1.0.118
 
 - 修复带配置的控制命令（悬浮窗「结束/暂停/继续」走广播 + cfg）没有取消人脸冻结的问题：结束后不再被 3 分钟超时改回运行；App 侧状态变化在冻结期间也立即生效

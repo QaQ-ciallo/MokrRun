@@ -59,8 +59,10 @@ HOOK android.location.LocationManager.requestSingleUpdate [2]
 LOG MokrRun: hooked requestSingleUpdate #2
 HOOK android.location.LocationManager.removeUpdates [all]
 LOG MokrRun: hooked removeUpdates
+HOOK android.location.LocationManager$LocationListenerTransport.onLocationChanged [all]
+LOG MokrRun: system location callbacks suppressed via android.location.LocationManager$LocationListenerTransport
 HOOK android.location.LocationManager$ListenerTransport.onLocationChanged [all]
-LOG MokrRun: system location callbacks suppressed during takeover
+LOG MokrRun: system location callbacks suppressed via android.location.LocationManager$ListenerTransport
 HOOK android.location.LocationManager.requestLocationUpdates [4]
 LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
 HOOK android.location.LocationManager.getLastLocation [all]
