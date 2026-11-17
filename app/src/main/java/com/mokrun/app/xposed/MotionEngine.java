@@ -89,17 +89,24 @@ public final class MotionEngine {
     private static final int PROVIDER_MODE_UNKNOWN = Integer.MIN_VALUE;
     private static volatile int sProviderMode = PROVIDER_MODE_UNKNOWN;
 
-    /** 路线：index 0 是起点，后面是途经点 */
-    private static volatile double[] sLat = new double[]{39.908700};
-    private static volatile double[] sLon = new double[]{116.397500};
+    /** 路线：index 0 是起点，后面是途经点。空数组 = 没有有效路线 */
+    private static volatile double[] sLat = new double[0];
+    private static volatile double[] sLon = new double[0];
     private static volatile String sLastOrigin = "";
     private static volatile int sLastRouteHash = 0;
 
-    private static volatile double sCurLat = 39.908700;
-    private static volatile double sCurLon = 116.397500;
+    /** 没有有效路线时不接管位置，也不给目标应用任何默认坐标 */
+    private static volatile double sCurLat = 0.0;
+    private static volatile double sCurLon = 0.0;
     private static volatile double sDistTotal = 0.0;
     private static volatile double sSegProgress = 0.0;
     private static volatile int sSeg = 0;
+    /**
+     * 推进方向：+1 沿数组向后，-1 折返。
+     * 路线是用户画的开放折线，没有任何「末点回到起点」的闭合腿；
+     * 到端点后沿原路折返，既不瞬移，也不凭空补出用户没画过的几何。
+     */
+    private static volatile int sDir = 1;
     private static volatile long sSteps = 0;
     private static volatile double sStepAccum = 0.0;
     private static volatile boolean sConfigLoaded = false;
@@ -231,9 +238,9 @@ public final class MotionEngine {
         return readMode() != 0 && hasRoute();
     }
 
-    /** 只有运行中才推进 */
+    /** 只有「运行中」并且有可推进的路线时才推进：没有路线时位置不许动、里程与步数也不许涨 */
     public static boolean isRunningNow() {
-        return readMode() == 1;
+        return readMode() == 1 && hasRoute();
     }
 
     /**
@@ -523,7 +530,7 @@ public final class MotionEngine {
         }
 
         if (!hasOrigin && wps.isEmpty()) {
-            XposedBridge.log(TAG + ": origin/route cleared");
+            clearRoute();
             return;
         }
 
@@ -551,11 +558,34 @@ public final class MotionEngine {
         }
     }
 
+    /**
+     * 空配置 = 用户清空了路线。
+     * 必须把「有效路线」一起清掉：只更新去重用的 sLastOrigin/sLastRouteHash 会让
+     * sLat/sLon 保留上一次的坐标，hasRoute() 继续为 true，引擎接着在旧路线上跑。
+     */
+    private static void clearRoute() {
+        sLat = new double[0];
+        sLon = new double[0];
+        sSeg = 0;
+        sSegProgress = 0;
+        sDir = 1;
+        resetCounters();
+        XposedBridge.log(TAG + ": origin/route cleared");
+    }
+
     private static void resetToStart() {
         sSeg = 0;
         sSegProgress = 0;
-        sCurLat = sLat[0];
-        sCurLon = sLon[0];
+        sDir = 1;
+        if (sLat.length > 0) {
+            sCurLat = sLat[0];
+            sCurLon = sLon[0];
+        }
+        resetCounters();
+    }
+
+    /** 里程/步数/计时归零；步数不能回退，把本场计入基数 */
+    private static void resetCounters() {
         sDistTotal = 0;
         // 步数不能回退：TYPE_STEP_COUNTER 的语义是「开机以来累计」，
         // 一旦变小就是很明显的伪造特征。所以本场清零时把基数累加过去。
@@ -595,30 +625,7 @@ public final class MotionEngine {
 
         double stepDist = sSpeed * dt;
         sDistTotal += stepDist;
-        sSegProgress += stepDist;
-
-        // 只有一个点（只有起点）时位置不动
-        if (sLat.length > 1) {
-            while (sSeg < sLat.length - 1) {
-                double segLen = dist(sLat[sSeg], sLon[sSeg], sLat[sSeg + 1], sLon[sSeg + 1]);
-                if (segLen < 0.01) {
-                    sSeg++;
-                    continue;
-                }
-                if (sSegProgress < segLen) {
-                    double f = sSegProgress / segLen;
-                    sCurLat = sLat[sSeg] + (sLat[sSeg + 1] - sLat[sSeg]) * f;
-                    sCurLon = sLon[sSeg] + (sLon[sSeg + 1] - sLon[sSeg]) * f;
-                    break;
-                }
-                sSegProgress -= segLen;
-                sSeg++;
-                if (sSeg >= sLat.length - 1) {
-                    sSeg = 0;
-                    sSegProgress = 0;
-                }
-            }
-        }
+        advanceAlongRoute(stepDist);
 
         sStepAccum += sCadence * Math.min(dt, STEP_DT_MAX);
         if (Double.isNaN(sStepAccum) || sStepAccum < 0) sStepAccum = 0;
@@ -658,6 +665,55 @@ public final class MotionEngine {
                 XposedBridge.log(TAG + ": emit failed " + t);
             }
         }
+    }
+
+    /**
+     * 沿折线推进 distance 米，到端点后折返。
+     *
+     * sSegProgress 是「当前段内、沿 sDir 方向已经走过的距离」：
+     *   sSeg 与 sSeg+sDir 构成本段，0 <= sSegProgress <= 该段长度。
+     * 原实现把末段的剩余距离直接丢弃并 sSeg = 0，等于从终点瞬移回起点
+     * （一次 tick 可移动上百米），而引擎里程只加了 1.2 米。
+     */
+    private static void advanceAlongRoute(double distance) {
+        int n = sLat.length;
+        if (n < 2 || distance <= 0) return;
+        double remaining = distance;
+        int guard = 0;
+        while (remaining > 1e-9 && guard++ < 4096) {
+            int other = sSeg + sDir;
+            if (other < 0 || other >= n) {
+                // 已经站在端点上：掉头，从同一端点重新出发
+                sDir = -sDir;
+                sSegProgress = 0;
+                continue;
+            }
+            double segLen = dist(sLat[sSeg], sLon[sSeg], sLat[other], sLon[other]);
+            if (segLen < 0.01) {
+                // 退化段（重复点）：直接跳过，避免除零
+                sSeg = other;
+                sSegProgress = 0;
+                continue;
+            }
+            double space = segLen - sSegProgress;
+            if (remaining < space) {
+                sSegProgress += remaining;
+                remaining = 0;
+                break;
+            }
+            remaining -= space;
+            sSeg = other;
+            sSegProgress = 0;
+        }
+
+        int other = sSeg + sDir;
+        if (other < 0 || other >= n) other = sSeg;
+        double segLen = dist(sLat[sSeg], sLon[sSeg], sLat[other], sLon[other]);
+        double f = segLen < 0.01 ? 0.0 : sSegProgress / segLen;
+        if (f < 0) f = 0;
+        if (f > 1) f = 1;
+        sCurLat = sLat[sSeg] + (sLat[other] - sLat[sSeg]) * f;
+        sCurLon = sLon[sSeg] + (sLon[other] - sLon[sSeg]) * f;
     }
 
     private static double dist(double lat1, double lon1, double lat2, double lon2) {
