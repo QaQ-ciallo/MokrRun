@@ -178,6 +178,16 @@ public final class Store {
     public static final float MIN_SPEED = 1.0f;
     public static final float MAX_SPEED = 5.0f;
     public static final float DEFAULT_SPEED = 4.8f;
+    /** 步频/步长的可接受区间：与引擎 MotionEngine 的校验区间保持一致 */
+    public static final float CADENCE_MIN = 0.1f;
+    public static final float CADENCE_MAX = 10f;
+    public static final float STRIDE_MIN = 0.2f;
+    public static final float STRIDE_MAX = 5f;
+
+    /** 非有限值（NaN / ±Infinity）会让引擎的累加器失控，读取时一律回落到默认值 */
+    private static float finiteOr(float v, float fallback) {
+        return (Float.isNaN(v) || Float.isInfinite(v)) ? fallback : v;
+    }
 
     public static float cadenceFor(float speed) {
         float c = BASE_CADENCE + (speed - BASE_SPEED) * CADENCE_SLOPE;
@@ -198,7 +208,8 @@ public final class Store {
     }
 
     public static float speed(Context ctx) {
-        return prefs(ctx).getFloat(KEY_SPEED, DEFAULT_SPEED);
+        float v = prefs(ctx).getFloat(KEY_SPEED, DEFAULT_SPEED);
+        return (v < MIN_SPEED || v > MAX_SPEED) ? DEFAULT_SPEED : finiteOr(v, DEFAULT_SPEED);
     }
 
     public static void setSpeed(Context ctx, float v) {
@@ -206,7 +217,7 @@ public final class Store {
     }
 
     public static float cadence(Context ctx) {
-        return prefs(ctx).getFloat(KEY_CADENCE, 3.1f);
+        return finiteOr(prefs(ctx).getFloat(KEY_CADENCE, 3.1f), 3.1f);
     }
 
     public static void setCadence(Context ctx, float v) {
@@ -214,7 +225,7 @@ public final class Store {
     }
 
     public static float stride(Context ctx) {
-        return prefs(ctx).getFloat(KEY_STRIDE, 1.55f);
+        return finiteOr(prefs(ctx).getFloat(KEY_STRIDE, 1.55f), 1.55f);
     }
 
     public static void setStride(Context ctx, float v) {

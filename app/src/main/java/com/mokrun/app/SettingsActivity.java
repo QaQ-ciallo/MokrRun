@@ -86,15 +86,34 @@ public class SettingsActivity extends Activity {
                             Toast.makeText(SettingsActivity.this, "请输入数字", Toast.LENGTH_SHORT).show();
                             return;
                         }
-                        if (v <= 0f) {
-                            Toast.makeText(SettingsActivity.this, "必须大于 0", Toast.LENGTH_SHORT).show();
+                        if (v <= 0f || Float.isNaN(v) || Float.isInfinite(v)) {
+                            Toast.makeText(SettingsActivity.this, "必须是大于 0 的有限数字",
+                                    Toast.LENGTH_SHORT).show();
                             return;
                         }
                         if (derive) {
+                            if (v < Store.MIN_SPEED || v > Store.MAX_SPEED) {
+                                Toast.makeText(SettingsActivity.this,
+                                        "速度范围 " + Store.MIN_SPEED + "~" + Store.MAX_SPEED + " m/s",
+                                        Toast.LENGTH_SHORT).show();
+                                return;
+                            }
                             Store.setSpeedWithDerived(SettingsActivity.this, v);
                         } else if (title.startsWith("步频")) {
+                            if (v < Store.CADENCE_MIN || v > Store.CADENCE_MAX) {
+                                Toast.makeText(SettingsActivity.this,
+                                        "步频范围 " + Store.CADENCE_MIN + "~" + Store.CADENCE_MAX + " 步/秒",
+                                        Toast.LENGTH_SHORT).show();
+                                return;
+                            }
                             Store.setCadence(SettingsActivity.this, v);
                         } else {
+                            if (v < Store.STRIDE_MIN || v > Store.STRIDE_MAX) {
+                                Toast.makeText(SettingsActivity.this,
+                                        "步长范围 " + Store.STRIDE_MIN + "~" + Store.STRIDE_MAX + " m",
+                                        Toast.LENGTH_SHORT).show();
+                                return;
+                            }
                             Store.setStride(SettingsActivity.this, v);
                         }
                         pushAndRefresh();

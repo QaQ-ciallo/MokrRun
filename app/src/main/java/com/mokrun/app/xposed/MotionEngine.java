@@ -26,6 +26,31 @@ public final class MotionEngine {
     private static final String TAG = "MokrRun";
     private static final long TICK_MS = 250L;
 
+    // ---- 参数合法区间 ------------------------------------------------------
+    // 任何来源（Intent / 广播 / ContentProvider / 设置页）的数值都必须过硬校验：
+    // Float.parseFloat 对超长数字返回 Infinity，而 Infinity 一旦进入累加器，
+    // 「减去 1 仍然是 Infinity」会让每个 tick 的补步循环永远退不出去，主线程直接卡死。
+    private static final float SPEED_MIN = 0.1f;
+    private static final float SPEED_HARD_MAX = 20f;
+    private static final float CADENCE_MIN = 0.1f;
+    private static final float CADENCE_MAX = 10f;
+    private static final float STRIDE_MIN = 0.2f;
+    private static final float STRIDE_MAX = 5f;
+    private static final int SAT_MIN = 1;
+    private static final int SAT_MAX = 64;
+    private static final int QR_MIN = 0;
+    private static final int QR_MAX = 2;
+    private static final float ALT_MIN = -500f;
+    private static final float ALT_MAX = 9000f;
+    private static final int ACC_MIN = -1;
+    private static final int ACC_MAX = 3;
+    private static final int MODE_MIN = 0;
+    private static final int MODE_MAX = 2;
+    /** 单 tick 最多补多少步：即使配置/时钟异常，主线程也只被占用有限次迭代 */
+    private static final int STEP_MAX_PER_TICK = 64;
+    /** 步数累计使用的 dt 上限：长时间卡顿恢复时不能一次性补几百步 */
+    private static final double STEP_DT_MAX = 2.0;
+
     private static volatile float sSpeed = 2.5f;
     private static volatile float sCadence = 2.2f;
     private static volatile float sStride = 1.1f;
@@ -87,6 +112,15 @@ public final class MotionEngine {
     private static android.content.Context sCtx = null;
 
     private MotionEngine() {}
+
+    /** 只接受「有限且落在业务区间内」的浮点数；越界/NaN/Infinity 一律拒绝 */
+    private static boolean inRange(float v, float min, float max) {
+        return !Float.isNaN(v) && !Float.isInfinite(v) && v >= min && v <= max;
+    }
+
+    private static boolean inRange(int v, int min, int max) {
+        return v >= min && v <= max;
+    }
 
     // ---- public accessors for the hooks ------------------------------------
 
@@ -187,6 +221,10 @@ public final class MotionEngine {
 
     /** 由广播通道调用：暂停 / 继续 / 结束 */
     public static void setMode(int mode) {
+        if (!inRange(mode, MODE_MIN, MODE_MAX)) {
+            XposedBridge.log(TAG + ": mode rejected (" + mode + ")");
+            return;
+        }
         sMode = mode;
         sIntentMode = true;      // 一旦被明确设置，就由它主导，不再回落
         sRunCheckedAt = System.currentTimeMillis();
@@ -335,15 +373,20 @@ public final class MotionEngine {
                 }
             }
         }
-        if (sat > 0) sSat = sat;
-        if (qr >= 0) sQrStatus = qr;
-        if (spdmax > 0.1f) sSpeedMax = spdmax;
-        if (rs >= 0) sSuppressRealSteps = (rs == 1);
-        if (alt > 0f) sAlt = alt;
-        if (acc >= 0) sGpsAccStatus = acc;
+        if (sat > 0) sSat = inRange(sat, SAT_MIN, SAT_MAX) ? sat : sSat;
+        if (qr >= 0) sQrStatus = inRange(qr, QR_MIN, QR_MAX) ? qr : sQrStatus;
+        if (spdmax > 0.1f) sSpeedMax = inRange(spdmax, SPEED_MIN, SPEED_HARD_MAX) ? spdmax : sSpeedMax;
+        if (rs == 0 || rs == 1) sSuppressRealSteps = (rs == 1);
+        if (alt > ALT_MIN) sAlt = inRange(alt, ALT_MIN, ALT_MAX) ? alt : sAlt;
+        // acc<0 是「不伪装、保留真实值」的显式约定（见 SDKLocationHook），因此接受 -1
+        if (acc >= ACC_MIN) sGpsAccStatus = inRange(acc, ACC_MIN, ACC_MAX) ? acc : sGpsAccStatus;
         applyOriginRoute(origin, waypoints);
         applyConfigInner(sp, cd, st);
-        sMode = run;
+        if (inRange(run, MODE_MIN, MODE_MAX)) {
+            sMode = run;
+        } else {
+            XposedBridge.log(TAG + ": run mode rejected (" + run + "), keep mode=" + sMode);
+        }
         sIntentMode = true;
         sRunCheckedAt = System.currentTimeMillis();
         sConfigLoaded = true;
@@ -355,17 +398,28 @@ public final class MotionEngine {
 
     /** 只更新参数，不动路线（路线由 applyOriginRoute 负责） */
     private static void applyConfigInner(float speed, float cadence, float stride) {
-        if (speed > 0.1f) {
+        if (inRange(speed, SPEED_MIN, SPEED_HARD_MAX)) {
             float eff = speed;
-            if (speed > sSpeedMax) {
+            if (eff > sSpeedMax) {
                 eff = sSpeedMax;
                 XposedBridge.log(TAG + ": speed " + speed + " clamped to " + sSpeedMax
-                        + " (target drops points above ~3.0 m/s)");
+                        + " (target drops points above ~5.0 m/s)");
             }
             sSpeed = eff;
+        } else if (speed > 0f) {
+            // 默认值是 -1（未提供），只有显式提供的非法值才需要告警
+            XposedBridge.log(TAG + ": speed rejected (" + speed + ")");
         }
-        if (cadence > 0.1f) sCadence = cadence;
-        if (stride > 0.2f) sStride = stride;
+        if (inRange(cadence, CADENCE_MIN, CADENCE_MAX)) {
+            sCadence = cadence;
+        } else if (cadence > 0f) {
+            XposedBridge.log(TAG + ": cadence rejected (" + cadence + ")");
+        }
+        if (inRange(stride, STRIDE_MIN, STRIDE_MAX)) {
+            sStride = stride;
+        } else if (stride > 0f) {
+            XposedBridge.log(TAG + ": stride rejected (" + stride + ")");
+        }
     }
 
     /** 起点 + 途经点 → 路线数组；起点变了就重置到起点 */
@@ -501,7 +555,12 @@ public final class MotionEngine {
             }
         }
 
-        sStepAccum += sCadence * dt;
+        sStepAccum += sCadence * Math.min(dt, STEP_DT_MAX);
+        if (Double.isNaN(sStepAccum) || sStepAccum < 0) sStepAccum = 0;
+        if (sStepAccum > STEP_MAX_PER_TICK) {
+            XposedBridge.log(TAG + ": step backlog dropped (" + sStepAccum + ")");
+            sStepAccum = STEP_MAX_PER_TICK;
+        }
         while (sStepAccum >= 1.0) {
             sStepAccum -= 1.0;
             sSteps++;
