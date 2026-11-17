@@ -1,0 +1,182 @@
+=== route_fixture (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+PASS route_fixture
+
+=== normal_tick (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=4.8m steps=3 pos=30.000043,120.000000 seg=0/2
+PASS normal_tick
+
+=== paused_tick (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=2 points=3
+LOG MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+PASS paused_tick
+
+=== stop_during_freeze (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: mode set to 0 (via command)
+LOG MokrRun: mode set to 1 (via command)
+LOG MokrRun: face check done -> resume mode=1
+Exception in thread "main" java.lang.AssertionError: STOP overwritten: mode=1
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:52)
+
+=== freeze_while_stopped (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: mode set to 1 (via command)
+LOG MokrRun: face check done -> resume mode=1
+Exception in thread "main" java.lang.AssertionError: idle process unexpectedly started: mode=1
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:55)
+
+=== provider_overwrites_pause (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: mode set to 2 (via command)
+Exception in thread "main" java.lang.AssertionError: provider overwrote explicit PAUSE: mode=1
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:60)
+
+=== clear_route (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: origin/route cleared
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+Exception in thread "main" java.lang.AssertionError: cleared route retained 3 old points
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:63)
+
+=== paused_speed (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=2 points=3
+Exception in thread "main" java.lang.AssertionError: paused Location speed=4.8
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:66)
+
+=== run_without_route (exit 1) ===
+LOG MokrRun: origin/route cleared
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=1
+LOG MokrRun: tick dist=4.8m steps=3 pos=39.908700,116.397500 seg=0/0
+Exception in thread "main" java.lang.AssertionError: no route but steps=3 dist=4.824000191688537
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:70)
+
+=== route_wrap_jump (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.000000,120.000000 seg=0/2
+Exception in thread "main" java.lang.AssertionError: one tick moved 146.96589059699235m, engine counted 1.2048000478744507m
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:81)
+
+=== unregister_other_sensor (exit 1) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener - total=0
+Exception in thread "main" java.lang.AssertionError: unregistering accelerometer removed step listener; received=1
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:86)
+
+=== unregister_one_step_type (exit 1) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step register suppressed (rs=1) type=18
+LOG MokrRun: step listener - total=0
+Exception in thread "main" java.lang.AssertionError: remaining detector registration lost; received=0
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:92)
+
+=== listener_exception (exit 1) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener + type=19 total=2
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: pushStep failed java.lang.IllegalStateException: fixture listener
+Exception in thread "main" java.lang.AssertionError: one throwing listener prevented healthy listener; received=0
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:100)
+
+=== new_intent (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+LOG MokrRun: intent bridge installed
+Exception in thread "main" java.lang.AssertionError: new extras ignored: mode=0 speed=4.8
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:108)
+
+=== gnss_payload (exit 1) ===
+LOG MokrRun: GnssStatus.Builder methods -> addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) build() 
+LOG MokrRun: gnss addSatellite arity=12
+OBSERVED satellite2 constellation=2.0 svid=1.0 carrierHz=27.0 basebandCn0=1575.42
+Exception in thread "main" java.lang.AssertionError: GNSS parameter order/units wrong
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:117)
+
+=== cadence_infinity (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=Infinity stride=1.1 sat=14 mode=1 points=3
+Exception in thread "main" java.lang.AssertionError: cadence accepted Infinity; tick's accumulator cannot decrease
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:120)
+
+=== cadence_infinity_tick (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=Infinity stride=1.1 sat=14 mode=1 points=3
+Exception in thread "main" java.lang.AssertionError: tick did not return in 200ms; steps=8908985
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:128)
+
+=== location_unregister (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: hooked getLastKnownLocation
+LOG MokrRun: hooked getCurrentLocation
+LOG MokrRun: hooked requestLocationUpdates 4
+LOG MokrRun: hooked requestLocationUpdates 5
+LOG MokrRun: hooked requestSingleUpdate #1
+LOG MokrRun: hooked requestSingleUpdate #2
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.ModuleAudit$LocListener
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.000011,120.000000 seg=0/2
+Exception in thread "main" java.lang.AssertionError: removed location listener still received 1 extra synthetic update(s)
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:140)
+
+=== unrelated_dialog_dismiss (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRunProbe: hooked Dialog.show
+LOG MokrRunProbe: hooked androidx.appcompat.app.AlertDialog$Builder.setMessage
+LOG MokrRunProbe: hooked com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: mode set to 1 (via command)
+LOG MokrRun: face check done -> resume mode=1
+Exception in thread "main" java.lang.AssertionError: dismissing an unrelated dialog released active face freeze
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:145)
+
+=== log_throttle_skips_freeze (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+Exception in thread "main" java.lang.AssertionError: a log within 300ms caused face detection to be skipped
+	at com.mokrun.app.xposed.ModuleAudit.check(ModuleAudit.java:24)
+	at com.mokrun.app.xposed.ModuleAudit.main(ModuleAudit.java:152)
