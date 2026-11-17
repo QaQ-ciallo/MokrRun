@@ -340,16 +340,40 @@ public class LocationManager {
     public void removeUpdates(android.app.PendingIntent p) { removed++; }
 }
 """,
+    "android/os/IRemoteCallback.java": """
+package android.os;
+/** 系统在 onLocationChanged(List, IRemoteCallback) 里等待的完成回调（AOSP IRemoteCallback.aidl） */
+public interface IRemoteCallback { void sendResult(Bundle data); }
+""",
+    "android/location/LocationManager$LocationListenerTransport.java": """
+package android.location;
+import java.util.List;
+/**
+ * AOSP(Android 11~16) 内部回调载体 android.location.LocationManager$LocationListenerTransport。
+ * 实测/源码确认的投递签名：onLocationChanged(List<Location>, IRemoteCallback)；
+ * Android 12 起该内部类同时保留了单 Location 的重载，这里一并建模，
+ * 用于验证「按类名候选 + 对 onLocationChanged 所有重载挂钩」的合同。
+ */
+public class LocationManager$LocationListenerTransport {
+    public int delivered;
+    public int completed;
+    public void onLocationChanged(List<Location> locations,
+            android.os.IRemoteCallback onComplete) {
+        delivered++;
+        if (onComplete != null) { completed++; onComplete.sendResult(null); }
+    }
+    public void onLocationChanged(Location location) { delivered++; }
+}
+""",
     "android/location/LocationManager$ListenerTransport.java": """
 package android.location;
 /**
- * AOSP 内部回调载体 android.location.LocationManager$ListenerTransport 的替身。
- * 系统把真实定位事件经它转交给应用注册的 LocationListener；
- * 这里只用于校验「接管期间单一来源」的 hook 合同，不模拟 binder。
+ * Android 10 及更早的旧命名 LocationManager$ListenerTransport（单 Location 签名）。
+ * 设备（API 36）上不存在；保留该替身用于验证候选类名的回退路径。
  */
 public class LocationManager$ListenerTransport {
     public int delivered;
-    public void onLocationChanged(Location l) { delivered++; }
+    public void onLocationChanged(Location location) { delivered++; }
 }
 """,
     "android/location/GnssStatus.java": """

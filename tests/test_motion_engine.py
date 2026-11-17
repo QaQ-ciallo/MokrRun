@@ -133,6 +133,11 @@ public class EngineRegression {
             count++;
         }
     }
+    /** 系统侧的 IRemoteCallback（onComplete）记录器 */
+    static class CallbackRecorder implements android.os.IRemoteCallback {
+        int completed;
+        public void sendResult(android.os.Bundle data) { completed++; }
+    }
     static void register(Listener listener, Sensor sensor) {
         new SensorHook.RegHook().beforeHookedMethod(param(null, listener, sensor, Integer.valueOf(0)));
     }
@@ -528,19 +533,49 @@ public class EngineRegression {
             check(sink.count == 1, "single-shot listener received " + sink.count + " updates");
 
         } else if (which.equals("system_callback_suppressed_during_takeover")) {
+            // 设备（API 36）上的真实形态：LocationManager$LocationListenerTransport
+            // 的 onLocationChanged(List<Location>, IRemoteCallback)
             configure(1);
             LocationProbe.install(EngineRegression.class.getClassLoader());
+            check(XposedBridge.hookCount(
+                    "android.location.LocationManager$LocationListenerTransport.onLocationChanged") > 0,
+                    "callback guard not installed on the device transport class");
+            android.location.LocationManager$LocationListenerTransport transport =
+                    new android.location.LocationManager$LocationListenerTransport();
+            CallbackRecorder cb = new CallbackRecorder();
+            List<Location> batch = new ArrayList<Location>();
+            batch.add(new Location("gps"));
+            MethodHookParam p = param(transport, batch, cb);
+            invokeBefore("android.location.LocationManager$LocationListenerTransport.onLocationChanged", p);
+            if (!p.stopped) transport.onLocationChanged(batch, cb);      // 框架原实现
+            check(transport.delivered == 0, "real system callback delivered during takeover");
+            check(p.stopped, "real system callback was not short-circuited during takeover");
+            check(cb.completed == 1, "system onComplete callback was not acknowledged");
+
+            MotionEngine.setMode(0);                                     // 结束：交还真实定位
+            p = param(transport, batch, cb);
+            invokeBefore("android.location.LocationManager$LocationListenerTransport.onLocationChanged", p);
+            if (!p.stopped) transport.onLocationChanged(batch, cb);
+            check(transport.delivered == 1, "real system callback blocked after takeover ended");
+
+        } else if (which.equals("legacy_system_callback_suppressed")) {
+            // Android 10 及更早的旧类名/旧签名：候选类名回退路径
+            configure(1);
+            LocationProbe.install(EngineRegression.class.getClassLoader());
+            check(XposedBridge.hookCount(
+                    "android.location.LocationManager$ListenerTransport.onLocationChanged") > 0,
+                    "callback guard not installed on the legacy transport class");
             android.location.LocationManager$ListenerTransport transport =
                     new android.location.LocationManager$ListenerTransport();
             MethodHookParam p = param(transport, new Location("gps"));
             invokeBefore("android.location.LocationManager$ListenerTransport.onLocationChanged", p);
-            if (!p.stopped) transport.onLocationChanged(new Location("gps"));   // 框架原实现
-            check(transport.delivered == 0, "real system callback delivered during takeover");
-            MotionEngine.setMode(0);   // 结束：交还真实定位
+            if (!p.stopped) transport.onLocationChanged(new Location("gps"));
+            check(transport.delivered == 0, "legacy transport delivered during takeover");
+            MotionEngine.setMode(0);
             p = param(transport, new Location("gps"));
             invokeBefore("android.location.LocationManager$ListenerTransport.onLocationChanged", p);
             if (!p.stopped) transport.onLocationChanged(new Location("gps"));
-            check(transport.delivered == 1, "real system callback blocked after takeover ended");
+            check(transport.delivered == 1, "legacy transport blocked after takeover ended");
 
         } else if (which.equals("location_remove_updates_stops_delivery")) {
             configure(1);
@@ -763,6 +798,7 @@ CASES = [
     "location_listener_exception_isolated",
     "location_single_update_suppresses_system_request",
     "system_callback_suppressed_during_takeover",
+    "legacy_system_callback_suppressed",
     # 弹窗冻结与日志限流（问题 13、14）
     "related_dialog_dismiss_resumes",
     "unrelated_dialog_dismiss_keeps_freeze",
