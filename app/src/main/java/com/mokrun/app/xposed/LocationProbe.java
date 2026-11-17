@@ -39,26 +39,64 @@ public final class LocationProbe {
      *
      * 连续注册（requestLocationUpdates）故意保留真实注册：如果在这里拦掉，
      * 「结束」之后应用就拿不回真实定位了。代价是系统仍会回调真实位置，
-     * 所以在系统回调进入应用的入口（LocationManager$ListenerTransport）拦一次：
-     * 只在 isActive() 时丢弃，结束/暂停后真实回调照常放行。
+     * 所以在系统回调进入应用的入口拦一次：只在 isActive() 时丢弃，
+     * 结束/暂停后真实回调照常放行。
      *
-     * 该类是 AOSP 内部实现，OEM 可能改名；找不到时跳过，
-     * 行为回落到「真实事件可能混入合成流」，日志会记录 skipped。
+     * 真实类名与签名随 API 变化（已按 AOSP 源码逐版本核对）：
+     *   Android 11~16：android.location.LocationManager$LocationListenerTransport
+     *                   onLocationChanged(List<Location> locations, IRemoteCallback onComplete)
+     *   Android 10 及更早：android.location.LocationManager$ListenerTransport
+     *                   onLocationChanged(Location location)
+     * 因此按候选类名逐个尝试，并对 onLocationChanged 的**所有重载**挂钩
+     * （不假设参数个数/类型）；一个载体都没找到时只记日志，
+     * 行为回落到「真实事件可能混入合成流」。
      */
+    private static final String[] CALLBACK_TRANSPORTS = {
+            "android.location.LocationManager$LocationListenerTransport",
+            "android.location.LocationManager$ListenerTransport",
+    };
+
     private static void hookSystemCallbacks(ClassLoader cl) {
+        int hooked = 0;
+        for (int i = 0; i < CALLBACK_TRANSPORTS.length; i++) {
+            final String name = CALLBACK_TRANSPORTS[i];
+            try {
+                Class<?> transport = XposedHelpers.findClass(name, cl);
+                XposedBridge.hookAllMethods(transport, "onLocationChanged", new XC_MethodHook() {
+                    @Override
+                    protected void beforeHookedMethod(MethodHookParam param) {
+                        if (!MotionEngine.isActive()) return;
+                        completeSystemCallback(param);
+                        param.setResult(null);
+                    }
+                });
+                hooked++;
+                XposedBridge.log(TAG + ": system location callbacks suppressed via " + name);
+            } catch (Throwable t) {
+                // 该 API 上不存在这个类名属正常情况：候选列表覆盖多个版本
+                XposedBridge.log(TAG + ": callback guard not found on " + name);
+            }
+        }
+        if (hooked == 0) {
+            XposedBridge.log(TAG + ": no location callback transport found,"
+                    + " real location events may mix into the synthetic stream");
+        }
+    }
+
+    /**
+     * 系统在 onLocationChanged(List, IRemoteCallback) 里等待应用侧投递完成的确认回调。
+     * 跳过投递时必须补一次 sendResult(null)，否则系统侧的投递记账永远等不到完成。
+     */
+    private static void completeSystemCallback(XC_MethodHook.MethodHookParam param) {
+        if (param.args == null || param.args.length < 2) return;
+        Object callback = param.args[1];
+        if (callback == null) return;
         try {
-            Class<?> transport = XposedHelpers.findClass(
-                    "android.location.LocationManager$ListenerTransport", cl);
-            XposedBridge.hookAllMethods(transport, "onLocationChanged", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
-                    if (!MotionEngine.isActive()) return;
-                    param.setResult(null);
-                }
-            });
-            XposedBridge.log(TAG + ": system location callbacks suppressed during takeover");
+            java.lang.reflect.Method send = callback.getClass()
+                    .getMethod("sendResult", android.os.Bundle.class);
+            send.invoke(callback, new Object[]{null});
         } catch (Throwable t) {
-            XposedBridge.log(TAG + ": system callback guard skipped (" + t + ")");
+            XposedBridge.log(TAG + ": onComplete notify skipped (" + t + ")");
         }
     }
 
