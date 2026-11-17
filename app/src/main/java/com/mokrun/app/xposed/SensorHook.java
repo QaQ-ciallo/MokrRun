@@ -36,21 +36,63 @@ public final class SensorHook {
     private static final Map<SensorEventListener, Registration> sListeners =
             Collections.synchronizedMap(new IdentityHashMap<SensorEventListener, Registration>());
 
-    /** 一个 listener 的计步注册集合：同一 listener 可以同时注册 counter 与 detector */
+    /**
+     * 一个 listener 的计步注册集合。
+     *
+     * 按 Sensor **实例**记录，而不是按 type：同一个 listener 可以同时持有
+     * 同类型的两个不同 Sensor（例如 counter 的唤醒/非唤醒变体），
+     * 注销其中一个不能影响另一个。身份比较用 ==，与
+     * SensorManager.unregisterListener(listener, sensor) 的语义一致。
+     */
     static final class Registration {
-        final Map<Integer, Sensor> byType = new HashMap<Integer, Sensor>();
+        final List<Sensor> sensors = new ArrayList<Sensor>();
 
-        boolean isEmpty() { return byType.isEmpty(); }
+        boolean add(Sensor s) {
+            if (s == null || indexOf(s) >= 0) return false;
+            sensors.add(s);
+            return true;
+        }
 
-        /** 投递形态：注册了 counter 就喂累计值，否则喂 detector 的单步 1 */
-        Integer payloadType() {
-            if (byType.containsKey(Integer.valueOf(Sensor.TYPE_STEP_COUNTER))) {
-                return Integer.valueOf(Sensor.TYPE_STEP_COUNTER);
+        /** 精确按实例移除；返回 false 表示这个实例本来就不在注册表里 */
+        boolean remove(Sensor s) {
+            int i = indexOf(s);
+            if (i < 0) return false;
+            sensors.remove(i);
+            return true;
+        }
+
+        boolean isEmpty() { return sensors.isEmpty(); }
+
+        int size() { return sensors.size(); }
+
+        int countOfType(int type) {
+            int n = 0;
+            for (int i = 0; i < sensors.size(); i++) {
+                if (sensors.get(i).getType() == type) n++;
             }
-            if (byType.containsKey(Integer.valueOf(Sensor.TYPE_STEP_DETECTOR))) {
-                return Integer.valueOf(Sensor.TYPE_STEP_DETECTOR);
+            return n;
+        }
+
+        Sensor firstOfType(int type) {
+            for (int i = 0; i < sensors.size(); i++) {
+                Sensor s = sensors.get(i);
+                if (s.getType() == type) return s;
             }
             return null;
+        }
+
+        /** 投递形态：注册了 counter 就喂累计值，否则喂 detector 的单步 1 */
+        Sensor payload() {
+            Sensor counter = firstOfType(Sensor.TYPE_STEP_COUNTER);
+            if (counter != null) return counter;
+            return firstOfType(Sensor.TYPE_STEP_DETECTOR);
+        }
+
+        private int indexOf(Sensor s) {
+            for (int i = 0; i < sensors.size(); i++) {
+                if (sensors.get(i) == s) return i;
+            }
+            return -1;
         }
     }
 
@@ -147,15 +189,16 @@ public final class SensorHook {
                 int type = s.getType();
                 if (type != Sensor.TYPE_STEP_COUNTER && type != Sensor.TYPE_STEP_DETECTOR) return;
 
-                // 同一 listener 的每种计步类型各记一条，投递时按 counter 优先去重
+                // 同一 listener 的每个 Sensor 实例各记一条，投递时 counter 优先去重
                 synchronized (sListeners) {
                     Registration reg = sListeners.get(l);
                     if (reg == null) {
                         reg = new Registration();
                         sListeners.put(l, reg);
                     }
-                    if (reg.byType.put(Integer.valueOf(type), s) == null) {
+                    if (reg.add(s)) {
                         XposedBridge.log(TAG + ": step listener + type=" + type
+                                + " regs=" + reg.size()
                                 + " total=" + sListeners.size());
                     }
                 }
@@ -173,9 +216,11 @@ public final class SensorHook {
     }
 
     /**
-     * 注销：带 Sensor 时只移除这一个类型，不带 Sensor 时移除该 listener 的全部计步注册。
-     * Android 的 unregisterListener(listener, sensor) 本来就只注销一个传感器，
-     * 之前不区分参数会把仍然有效的另一个计步注册一起删掉。
+     * 注销：带 Sensor 时只移除这一个实例，不带 Sensor 时移除该 listener 的全部计步注册。
+     *
+     * Android 的 unregisterListener(listener, sensor) 只注销传入的那个 Sensor；
+     * 同类型的不同 Sensor 实例必须各自独立。应用若传入了「等价但不同实例」的 Sensor，
+     * 只有该类型在表中只剩一条时才等价移除，避免在同类型多条时误删。
      */
     static class UnregHook extends XC_MethodHook {
         @Override protected void beforeHookedMethod(MethodHookParam param) {
@@ -191,10 +236,19 @@ public final class SensorHook {
                     Registration reg = sListeners.get(l);
                     if (reg == null) return;
                     if (s != null) {
-                        if (reg.byType.remove(Integer.valueOf(s.getType())) == null) return;
-                        XposedBridge.log(TAG + ": step listener - type=" + s.getType());
+                        int type = s.getType();
+                        boolean removed = reg.remove(s);
+                        if (!removed) {
+                            int ofType = reg.countOfType(type);
+                            if (ofType == 0) return;   // 这个类型没有注册
+                            if (ofType > 1) return;    // 同类型多条且实例不匹配：保守不动
+                            removed = reg.remove(reg.firstOfType(type));
+                        }
+                        if (!removed) return;
+                        XposedBridge.log(TAG + ": step listener - type=" + type
+                                + " regs=" + reg.size());
                     } else {
-                        reg.byType.clear();
+                        reg.sensors.clear();
                     }
                     if (reg.isEmpty()) {
                         sListeners.remove(l);
@@ -233,16 +287,15 @@ public final class SensorHook {
                     reg = sListeners.get(l);
                 }
                 if (reg == null) continue;
-                Integer type = reg.payloadType();
-                if (type == null) continue;
-                Sensor s = reg.byType.get(type);
+                Sensor s = reg.payload();
                 if (s == null) continue;
+                int type = s.getType();
 
                 SensorEvent ev = ctor.newInstance(Integer.valueOf(1));
                 ev.sensor = s;
                 ev.timestamp = System.nanoTime();
                 ev.accuracy = 0;
-                ev.values[0] = (type.intValue() == Sensor.TYPE_STEP_COUNTER) ? (float) value : 1f;
+                ev.values[0] = (type == Sensor.TYPE_STEP_COUNTER) ? (float) value : 1f;
                 l.onSensorChanged(ev);
             } catch (Throwable t) {
                 XposedBridge.log(TAG + ": step delivery to " + l.getClass().getName()
