@@ -282,8 +282,12 @@ public final class MotionEngine {
         boolean changed = !first && run != sProviderMode;
         sProviderMode = run;
         if (sFaceFrozen) {
-            // 冻结期间不解除冻结，但把用户的最新意图记成恢复目标
-            if (!first && changed) sPrevMode = run;
+            // 冻结期间 provider 的 run 发生变化 = 用户在 App 侧按下了暂停/结束/继续：
+            // 这是新的显式命令，撤销冻结并采用它，否则要等 3 分钟超时才生效。
+            if (!first && changed) {
+                cancelFaceFreeze("provider mode=" + run);
+                sMode = run;
+            }
             return;
         }
         if (first) {
@@ -487,6 +491,10 @@ public final class MotionEngine {
         applyOriginRouteIfGiven(origin, waypoints);
         applyConfigInner(sp, cd, st);
         if (inRange(run, MODE_MIN, MODE_MAX)) {
+            // 带配置的控制命令同样是显式命令：悬浮窗的「结束/暂停/继续」会带上
+            // cfg/origin/route 走 CommandReceiver → 这里（而不是 setMode）。
+            // 必须在这里撤销旧的冻结与它的 3 分钟超时，否则新状态会被定时任务覆盖。
+            cancelFaceFreeze("config mode=" + run);
             sMode = run;
         } else {
             XposedBridge.log(TAG + ": run mode rejected (" + run + "), keep mode=" + sMode);
