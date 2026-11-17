@@ -254,6 +254,19 @@ public class ContentResolver {
     }
 }
 """,
+    "android/content/BroadcastReceiver.java": """
+package android.content;
+public abstract class BroadcastReceiver {
+    public abstract void onReceive(Context c, Intent i);
+}
+""",
+    "android/content/IntentFilter.java": """
+package android.content; public class IntentFilter { public IntentFilter(String action) {} }
+""",
+    "android/os/Build.java": """
+package android.os;
+public class Build { public static class VERSION { public static final int SDK_INT=36; } }
+""",
     "android/content/Context.java": """
 package android.content;
 public class Context {
@@ -325,6 +338,18 @@ public class LocationManager {
     public int removed;
     public void removeUpdates(LocationListener l) { removed++; }
     public void removeUpdates(android.app.PendingIntent p) { removed++; }
+}
+""",
+    "android/location/LocationManager$ListenerTransport.java": """
+package android.location;
+/**
+ * AOSP 内部回调载体 android.location.LocationManager$ListenerTransport 的替身。
+ * 系统把真实定位事件经它转交给应用注册的 LocationListener；
+ * 这里只用于校验「接管期间单一来源」的 hook 合同，不模拟 binder。
+ */
+public class LocationManager$ListenerTransport {
+    public int delivered;
+    public void onLocationChanged(Location l) { delivered++; }
 }
 """,
     "android/location/GnssStatus.java": """
@@ -463,11 +488,13 @@ def _write_tree(base, files):
     return paths
 
 
-def build(jdk, harness_files, production):
+def build(jdk, harness_files, production, overrides=None):
     """编译替身 + 生产源码 + harness，返回 classpath 根目录。
 
     harness_files: {相对路径: 源码}
     production:    生产源码类名列表（app/src/main/java/com/mokrun/app/xposed/ 下）
+    overrides:     可选，{相对路径: 源码}，按需替换/追加边界替身
+                   （例如只给需要 CommandReceiver 的用例补 Context.registerReceiver）
     顺序：替身与生产源码一起编译，再单独编译 harness（harness 依赖生产类）。
     """
     output = ROOT / "build"
@@ -475,7 +502,10 @@ def build(jdk, harness_files, production):
     base = Path(tempfile.mkdtemp(prefix="mokr-jvm-", dir=str(output)))
     javac = str(jdk / "bin" / "javac.exe")
 
-    fakes = _write_tree(base, boundary_sources())
+    sources = boundary_sources()
+    if overrides:
+        sources.update(overrides)
+    fakes = _write_tree(base, sources)
     prod = [str(PRODUCTION / (name + ".java")) for name in production]
     subprocess.run([javac, "--release", "8", "-nowarn", "-encoding", "UTF-8",
                     "-d", str(base), *fakes, *prod], check=True)

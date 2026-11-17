@@ -20,7 +20,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import jvm_fakes  # noqa: E402
 
 PRODUCTION = ["MotionEngine", "SensorHook", "LocationProbe", "ResourceProbe",
-              "IntentBridge", "GnssHook"]
+              "IntentBridge", "GnssHook", "CommandReceiver"]
+
+# 只有需要编译 CommandReceiver 的用例才补 Context 的广播注册能力；
+# 不放进共享替身，外部夹具可以自行补充同名成员而不会重复声明。
+RECEIVER_CONTEXT = """
+package android.content;
+public class Context {
+    public static final int RECEIVER_EXPORTED=2;
+    public final ContentResolver resolver=new ContentResolver();
+    public Context getApplicationContext() { return this; }
+    public ContentResolver getContentResolver() { return resolver; }
+    public Object registerReceiver(BroadcastReceiver r, IntentFilter f) { return null; }
+    public Object registerReceiver(BroadcastReceiver r, IntentFilter f, int flags) { return null; }
+}
+"""
 
 HARNESS = r"""
 package com.mokrun.app.xposed;
@@ -84,6 +98,18 @@ public class EngineRegression {
         set("sLastTick", Long.valueOf(System.currentTimeMillis() - msAgo));
         call("tick");
     }
+    /** 直接执行某个 key 下的 before-hook，并保留 param 以便断言是否被短路 */
+    static void invokeBefore(String key, MethodHookParam p) throws Exception {
+        java.util.List<XposedBridge.Registration> list = XposedBridge.hooks.get(key);
+        check(list != null && !list.isEmpty(), "no hook registered for " + key);
+        for (XposedBridge.Registration r : list) {
+            Method before = r.hook.getClass().getDeclaredMethod("beforeHookedMethod",
+                    XC_MethodHook.MethodHookParam.class);
+            before.setAccessible(true);
+            before.invoke(r.hook, p);
+            if (p.stopped) break;   // 已被短路，同名重载不必再跑
+        }
+    }
     static MethodHookParam param(Object owner, Object... args) {
         MethodHookParam p = new MethodHookParam();
         p.thisObject = owner;
@@ -120,6 +146,14 @@ public class EngineRegression {
         ctx.resolver.row = new Cursor(Float.valueOf(speed), Float.valueOf(cadence),
                 Float.valueOf(stride), Integer.valueOf(1), origin, route, Integer.valueOf(run));
         return ctx;
+    }
+
+    /** 悬浮窗 sendCommand 的真实形态：一条广播同时带 cfg / origin / route / mode */
+    static Intent command(String cfg, int mode) {
+        return new Intent().putExtra("cfg", cfg)
+                .putExtra("origin", ORIGIN)
+                .putExtra("route", ROUTE)
+                .putExtra("mode", mode);
     }
 
     // ---- cases -------------------------------------------------------------
@@ -176,10 +210,39 @@ public class EngineRegression {
 
         } else if (which.equals("tick_huge_clock_gap_bounded")) {
             configure(1);
-            tickAfter(3600000L);           // 一小时的空档：dt 必须回落到一个 tick
-            check(MotionEngine.steps() <= 64, "clock gap produced " + MotionEngine.steps() + " steps");
+            tickAfter(3600000L);           // 一小时的空档：距离与步数都必须回落到同一个上限窗口
             double moved = dist(30.0, 120.0, MotionEngine.lat(), MotionEngine.lon());
-            check(moved < 3.0, "clock gap moved " + moved + "m in one tick");
+            check(moved <= 4.8 * 2.0 + 0.05, "clock gap moved " + moved + "m > one capped window");
+            check(Math.abs(MotionEngine.steps() - moved / 4.8 * 3.1) <= 1.0,
+                    "steps and distance diverged after a clock gap: steps=" + MotionEngine.steps()
+                            + " dist=" + moved);
+
+        } else if (which.equals("tick_gap_5s_keeps_sources_synced")) {
+            configure(1);
+            tickAfter(5000L);
+            double meters = d("sDistTotal");
+            long steps = MotionEngine.steps();
+            check(Math.abs(steps - meters / 4.8 * 3.1) <= 1.0,
+                    "distance and steps used different elapsed intervals: dist=" + meters
+                            + " steps=" + steps + " expected=" + (meters / 4.8 * 3.1));
+
+        } else if (which.equals("tick_gap_60s_keeps_sources_synced")) {
+            configure(1);
+            tickAfter(60000L);
+            double meters = d("sDistTotal");
+            long steps = MotionEngine.steps();
+            check(meters <= 4.8 * 2.0 + 0.05, "60s gap moved " + meters + "m");
+            check(Math.abs(steps - meters / 4.8 * 3.1) <= 1.0,
+                    "60s gap: dist=" + meters + " steps=" + steps);
+
+        } else if (which.equals("tick_normal_series_keeps_sources_synced")) {
+            configure(1);
+            for (int n = 0; n < 40; n++) tickAfter(250L);
+            double meters = d("sDistTotal");
+            long steps = MotionEngine.steps();
+            check(meters > 45.0 && meters < 51.0, "40 ticks should walk ~48m, got " + meters);
+            check(Math.abs(steps - meters / 4.8 * 3.1) <= 1.0,
+                    "nominal ticks diverged: dist=" + meters + " steps=" + steps);
 
         } else if (which.equals("freeze_timeout_restores_running")) {
             configure(1);
@@ -218,6 +281,46 @@ public class EngineRegression {
             h.advance(faceFreezeMs() + 1);
             check(readMode() == 2, "explicit pause was overwritten: mode=" + readMode());
             check(!MotionEngine.faceFrozen(), "explicit pause left the freeze flag set");
+
+        } else if (which.equals("cfg_stop_command_cancels_freeze")) {
+            // 真实入口：悬浮窗「结束」走带 cfg/origin/route 的广播 → CommandReceiver
+            configure(1);
+            MotionEngine.freezeForFace();
+            CommandReceiver.Receiver receiver = new CommandReceiver.Receiver();
+            receiver.onReceive(new Context(), command("speed=4.8;cadence=3.1", 0));
+            Handler h = (Handler) get("sFaceHandler");
+            check(h.pending() == 0, "cfg-bearing stop left the freeze timeout scheduled");
+            h.advance(faceFreezeMs() + 1);
+            check(readMode() == 0, "cfg-bearing STOP overwritten by freeze timeout: mode=" + readMode());
+            check(!MotionEngine.faceFrozen(), "cfg-bearing stop left the freeze flag set");
+
+        } else if (which.equals("cfg_pause_command_cancels_freeze")) {
+            configure(1);
+            MotionEngine.freezeForFace();
+            CommandReceiver.Receiver receiver = new CommandReceiver.Receiver();
+            receiver.onReceive(new Context(), command("speed=4.8;cadence=3.1", 2));
+            Handler h = (Handler) get("sFaceHandler");
+            h.advance(faceFreezeMs() + 1);
+            check(readMode() == 2, "cfg-bearing PAUSE overwritten by freeze timeout: mode=" + readMode());
+            check(!MotionEngine.faceFrozen(), "cfg-bearing pause left the freeze flag set");
+
+        } else if (which.equals("cfg_continue_command_cancels_freeze")) {
+            configure(1);
+            MotionEngine.freezeForFace();
+            CommandReceiver.Receiver receiver = new CommandReceiver.Receiver();
+            receiver.onReceive(new Context(), command("speed=4.8;cadence=3.1", 1));
+            check(readMode() == 1, "cfg-bearing resume did not apply: mode=" + readMode());
+            check(!MotionEngine.faceFrozen(), "cfg-bearing resume left the freeze flag set");
+
+        } else if (which.equals("provider_change_during_freeze_cancels")) {
+            Context ctx = provider(4.8f, 3.1f, 1.55f, 1, ORIGIN, ROUTE);
+            MotionEngine.configure(ctx);
+            MotionEngine.freezeForFace();
+            ctx.resolver.row = new Cursor(Float.valueOf(4.8f), Float.valueOf(3.1f),
+                    Float.valueOf(1.55f), Integer.valueOf(1), ORIGIN, ROUTE, Integer.valueOf(0));
+            set("sRunCheckedAt", Long.valueOf(0L));
+            check(readMode() == 0, "app-side STOP during freeze ignored: mode=" + readMode());
+            check(!MotionEngine.faceFrozen(), "app-side STOP left the freeze flag set");
 
         } else if (which.equals("provider_poll_keeps_freeze")) {
             MotionEngine.configure(provider(4.8f, 3.1f, 1.55f, 1, ORIGIN, ROUTE));
@@ -387,6 +490,57 @@ public class EngineRegression {
             unregister(l, null);
             SensorHook.pushStep(2);
             check(l.count == 1, "fully unregistered listener still received=" + l.count);
+
+        } else if (which.equals("sensor_same_type_two_sensors")) {
+            // 同一 listener 注册两个同类型（TYPE_STEP_COUNTER）的不同 Sensor 实例
+            Sensor a = new Sensor(Sensor.TYPE_STEP_COUNTER);
+            Sensor b = new Sensor(Sensor.TYPE_STEP_COUNTER);
+            Listener l = new Listener();
+            register(l, a);
+            register(l, b);
+            unregister(l, a);
+            SensorHook.pushStep(1);
+            check(l.count == 1, "unregistering one Sensor removed a different Sensor of the same type");
+            unregister(l, b);
+            SensorHook.pushStep(2);
+            check(l.count == 1, "both same-type Sensors unregistered but listener still received");
+
+        } else if (which.equals("sensor_equivalent_sensor_instance_unregister")) {
+            // 应用传入「同类型但不同实例」的 Sensor 时，只有该类型唯一注册才安全地等价移除
+            Sensor registered = new Sensor(Sensor.TYPE_STEP_DETECTOR);
+            Listener l = new Listener();
+            register(l, registered);
+            unregister(l, new Sensor(Sensor.TYPE_STEP_DETECTOR));
+            SensorHook.pushStep(1);
+            check(l.count == 0, "equivalent Sensor instance did not unregister the only registration");
+
+        } else if (which.equals("location_single_update_suppresses_system_request")) {
+            configure(1);
+            LocationProbe.install(EngineRegression.class.getClassLoader());
+            LocListener sink = new LocListener();
+            XC_MethodHook.MethodHookParam p = param(null, "gps", sink, Looper.getMainLooper());
+            invokeBefore("android.location.LocationManager.requestSingleUpdate", p);
+            check(p.stopped, "single-shot system request was not short-circuited during takeover");
+            call("emitLocation");
+            check(sink.count == 1, "synthetic one-shot delivery failed: " + sink.count);
+            // 原系统请求已被短路，框架不可能再回调一次真实位置
+            call("emitLocation");
+            check(sink.count == 1, "single-shot listener received " + sink.count + " updates");
+
+        } else if (which.equals("system_callback_suppressed_during_takeover")) {
+            configure(1);
+            LocationProbe.install(EngineRegression.class.getClassLoader());
+            android.location.LocationManager$ListenerTransport transport =
+                    new android.location.LocationManager$ListenerTransport();
+            MethodHookParam p = param(transport, new Location("gps"));
+            invokeBefore("android.location.LocationManager$ListenerTransport.onLocationChanged", p);
+            if (!p.stopped) transport.onLocationChanged(new Location("gps"));   // 框架原实现
+            check(transport.delivered == 0, "real system callback delivered during takeover");
+            MotionEngine.setMode(0);   // 结束：交还真实定位
+            p = param(transport, new Location("gps"));
+            invokeBefore("android.location.LocationManager$ListenerTransport.onLocationChanged", p);
+            if (!p.stopped) transport.onLocationChanged(new Location("gps"));
+            check(transport.delivered == 1, "real system callback blocked after takeover ended");
 
         } else if (which.equals("location_remove_updates_stops_delivery")) {
             configure(1);
@@ -571,11 +725,18 @@ CASES = [
     "nonfinite_and_negative_config_rejected",
     "tick_bounded_at_max_cadence",
     "tick_huge_clock_gap_bounded",
+    "tick_gap_5s_keeps_sources_synced",
+    "tick_gap_60s_keeps_sources_synced",
+    "tick_normal_series_keeps_sources_synced",
     # 冻结 / 停止 / 暂停 / 配置轮询（问题 2、3）
     "freeze_timeout_restores_running",
     "freeze_timeout_from_idle_keeps_idle",
     "stop_command_cancels_freeze",
     "pause_command_cancels_freeze",
+    "cfg_stop_command_cancels_freeze",
+    "cfg_pause_command_cancels_freeze",
+    "cfg_continue_command_cancels_freeze",
+    "provider_change_during_freeze_cancels",
     "provider_poll_keeps_freeze",
     "provider_poll_keeps_explicit_pause",
     "provider_change_still_followed",
@@ -594,10 +755,14 @@ CASES = [
     "sensor_dedup_two_step_types",
     "sensor_listener_exception_isolated",
     "sensor_unregister_all_stops_events",
+    "sensor_same_type_two_sensors",
+    "sensor_equivalent_sensor_instance_unregister",
     # 定位监听器（问题 8）
     "location_remove_updates_stops_delivery",
     "location_single_shot_delivered_once",
     "location_listener_exception_isolated",
+    "location_single_update_suppresses_system_request",
+    "system_callback_suppressed_during_takeover",
     # 弹窗冻结与日志限流（问题 13、14）
     "related_dialog_dismiss_resumes",
     "unrelated_dialog_dismiss_keeps_freeze",
@@ -621,7 +786,8 @@ def main():
     args = parser.parse_args()
 
     base = jvm_fakes.build(args.jdk, {"com/mokrun/app/xposed/EngineRegression.java": HARNESS},
-                           PRODUCTION)
+                           PRODUCTION,
+                           overrides={"android/content/Context.java": RECEIVER_CONTEXT})
     java = str(args.jdk / "bin" / "java.exe")
     output = jvm_fakes.ROOT / "build" / "regression-results.txt"
 
