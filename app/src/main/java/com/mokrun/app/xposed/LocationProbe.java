@@ -40,7 +40,8 @@ public final class LocationProbe {
      * 连续注册（requestLocationUpdates）故意保留真实注册：如果在这里拦掉，
      * 「结束」之后应用就拿不回真实定位了。代价是系统仍会回调真实位置，
      * 所以在系统回调进入应用的入口拦一次：只在 isActive() 时丢弃，
-     * 结束/暂停后真实回调照常放行。
+     * 结束（mode=0）后真实回调照常放行；有路线的暂停（mode=2）仍处于接管状态，
+ * 位置冻结、真实回调继续被丢弃——这与既有暂停语义一致。
      *
      * 真实类名与签名随 API 变化（已按 AOSP 源码逐版本核对）：
      *   Android 11~16：android.location.LocationManager$LocationListenerTransport
@@ -86,18 +87,82 @@ public final class LocationProbe {
     /**
      * 系统在 onLocationChanged(List, IRemoteCallback) 里等待应用侧投递完成的确认回调。
      * 跳过投递时必须补一次 sendResult(null)，否则系统侧的投递记账永远等不到完成。
+     *
+     * 反射调用必须从**公开接口**取 Method：
+     * 设备上的真实回调是 android.os.IRemoteCallback$Stub$Proxy——方法 public，
+     * 但实现类非 public（本轮已用设备 framework.jar 的 class_def 确认）。
+     * 从实现类 getMethod 得到的 Method 在跨包 invoke 时会抛 IllegalAccessException，
+     * 于是确认发不出去、外层却已经短路了投递。
      */
     private static void completeSystemCallback(XC_MethodHook.MethodHookParam param) {
         if (param.args == null || param.args.length < 2) return;
         Object callback = param.args[1];
         if (callback == null) return;
         try {
-            java.lang.reflect.Method send = callback.getClass()
-                    .getMethod("sendResult", android.os.Bundle.class);
+            java.lang.reflect.Method send = sendResultMethod(callback.getClass());
+            if (send == null) {
+                XposedBridge.log(TAG + ": onComplete notify failed -> no public sendResult(Bundle)");
+                return;
+            }
             send.invoke(callback, new Object[]{null});
         } catch (Throwable t) {
-            XposedBridge.log(TAG + ": onComplete notify skipped (" + t + ")");
+            // 处理策略：确认发送失败只记日志、不影响「接管期间不投递真实位置」这一主目标；
+            // 系统侧可能因此少收一次完成回执，日志关键字固定为 onComplete notify failed 便于现场核对。
+            Throwable cause = (t instanceof java.lang.reflect.InvocationTargetException
+                    && t.getCause() != null) ? t.getCause() : t;
+            XposedBridge.log(TAG + ": onComplete notify failed -> " + cause);
         }
+    }
+
+    /** 从公开接口解析 sendResult(Bundle)；解析一次后缓存 */
+    private static volatile java.lang.reflect.Method sSendResult = null;
+    private static volatile boolean sSendResultResolved = false;
+
+    private static java.lang.reflect.Method sendResultMethod(Class<?> callbackClass) {
+        if (sSendResultResolved) return sSendResult;
+        synchronized (LocationProbe.class) {
+            if (sSendResultResolved) return sSendResult;
+            java.lang.reflect.Method found = null;
+            // 1) 官方公共接口（设备上是 android.os.IRemoteCallback，public）
+            try {
+                Class<?> iface = Class.forName("android.os.IRemoteCallback", false,
+                        callbackClass.getClassLoader());
+                found = iface.getMethod("sendResult", android.os.Bundle.class);
+            } catch (Throwable ignored) {
+            }
+            // 2) 兜底：在实现类的公开接口里找声明了 sendResult(Bundle) 的那个
+            if (found == null) found = findInPublicInterfaces(callbackClass);
+            sSendResult = found;
+            sSendResultResolved = true;
+            if (found == null) {
+                XposedBridge.log(TAG + ": no public sendResult(Bundle) on "
+                        + callbackClass.getName());
+            }
+            return found;
+        }
+    }
+
+    private static java.lang.reflect.Method findInPublicInterfaces(Class<?> start) {
+        java.util.ArrayDeque<Class<?>> queue = new java.util.ArrayDeque<Class<?>>();
+        java.util.HashSet<Class<?>> seen = new java.util.HashSet<Class<?>>();
+        queue.add(start);
+        while (!queue.isEmpty()) {
+            Class<?> c = queue.poll();
+            if (c == null || !seen.add(c)) continue;
+            Class<?>[] interfaces = c.getInterfaces();
+            for (int i = 0; i < interfaces.length; i++) {
+                Class<?> iface = interfaces[i];
+                if (java.lang.reflect.Modifier.isPublic(iface.getModifiers())) {
+                    try {
+                        return iface.getMethod("sendResult", android.os.Bundle.class);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                queue.add(iface);
+            }
+            queue.add(c.getSuperclass());
+        }
+        return null;
     }
 
     /**
