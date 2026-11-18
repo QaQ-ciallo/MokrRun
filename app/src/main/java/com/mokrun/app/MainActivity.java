@@ -19,6 +19,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mokrun.app.data.ConfigSync;
+import com.mokrun.app.data.LocateTracker;
 import com.mokrun.app.data.LocationHelper;
 import com.mokrun.app.data.Store;
 
@@ -32,6 +33,7 @@ public class MainActivity extends Activity {
 
     private WebView homeMap;
     private View pageHome;
+    private boolean mapCentered = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -96,25 +98,40 @@ public class MainActivity extends Activity {
         homeMap.loadUrl("file:///android_asset/home.html");
     }
 
-    private void renderMap() {
-        if (homeMap == null) return;
-        double[] o = Store.origin(this);
-        final double oLat = o == null ? 0.0 : o[0];
-        final double oLon = o == null ? 0.0 : o[1];
-        final String wpsJs = jsString(ConfigSync.waypointsJson(this));
+    /** 首次进入才居中；后续刷新只更新图层，不抢回用户正在拖动的视野 */
+    private void renderMap() { renderMap(!mapCentered); }
 
-        LocationHelper.requestOnce(this, new LocationHelper.Callback() {
-            @Override public void onLocation(double lat, double lon) {
-                pushMapData(oLat, oLon, wpsJs, lat, lon);
+    private void renderMap(boolean center) {
+        if (homeMap == null) return;
+        if (center) mapCentered = true;
+        double[] o = Store.origin(this);
+        double oLat = o == null ? 0.0 : o[0];
+        double oLon = o == null ? 0.0 : o[1];
+        String wpsJs = jsString(ConfigSync.waypointsJson(this));
+        // 缓存只用于「先显示」，不宣布定位完成，也不修改路线
+        double[] cache = LocationHelper.cachedWithAge(this);
+        double curLat = 0.0, curLon = 0.0;
+        if (cache != null && LocateTracker.cacheUsable((long) cache[3])) {
+            curLat = cache[0];
+            curLon = cache[1];
+        }
+        pushMapData(oLat, oLon, wpsJs, curLat, curLon, center);
+    }
+
+    private void pushMapData(final double oLat, final double oLon, final String wpsJs,
+                             final double curLat, final double curLon, final boolean center) {
+        if (homeMap == null) return;
+        final String js = String.format(Locale.US, "setData(%.7f,%.7f,%s,%.7f,%.7f,%s)",
+                oLat, oLon, wpsJs, curLat, curLon, center ? "true" : "false");
+        homeMap.post(new Runnable() {
+            @Override public void run() {
+                homeMap.evaluateJavascript(js, null);
             }
         });
     }
 
-    private void pushMapData(final double oLat, final double oLon,
-                             final String wpsJs, final double curLat, final double curLon) {
+    private void callJs(final String js) {
         if (homeMap == null) return;
-        final String js = String.format(Locale.US, "setData(%.7f,%.7f,%s,%.7f,%.7f)",
-                oLat, oLon, wpsJs, curLat, curLon);
         homeMap.post(new Runnable() {
             @Override public void run() {
                 homeMap.evaluateJavascript(js, null);
@@ -126,12 +143,20 @@ public class MainActivity extends Activity {
         return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'";
     }
 
-    /** JS 调原生：重新定位 */
+    /** JS 调原生：定位按钮 / 打开起点编辑 */
     class HomeBridge {
         @JavascriptInterface
         public void requestLocation() {
             runOnUiThread(new Runnable() {
-                @Override public void run() { renderMap(); }
+                @Override public void run() { renderMap(false); }
+            });
+        }
+
+        /** 「定位当前位置」：请求新鲜定位，只居中当前位置，不改路线起点 */
+        @JavascriptInterface
+        public void locateCurrent() {
+            runOnUiThread(new Runnable() {
+                @Override public void run() { doLocate(); }
             });
         }
 
@@ -139,6 +164,28 @@ public class MainActivity extends Activity {
         public void openOrigin() {
             startActivity(new Intent(MainActivity.this, OriginActivity.class));
         }
+    }
+
+    private final LocateTracker locateTracker = new LocateTracker();
+
+    private void doLocate() {
+        LocationHelper.requestFresh(this, locateTracker, new LocationHelper.FreshCallback() {
+            @Override public void onPreview(double lat, double lon, float accuracy, long ageMs) {
+                callJs(String.format(Locale.US,
+                        "onLocatePreview(%.7f,%.7f,%.1f,'%d 秒')",
+                        lat, lon, accuracy, Math.max(0L, ageMs / 1000)));
+            }
+
+            @Override public void onFresh(double lat, double lon, float accuracy) {
+                callJs(String.format(Locale.US,
+                        "onLocateResult('%.7f','%.7f','%.1f','精度 %.0f m')",
+                        lat, lon, accuracy, accuracy));
+            }
+
+            @Override public void onError(String message) {
+                callJs("onLocateResult('','','','" + message.replace("'", " ") + "')");
+            }
+        });
     }
 
 

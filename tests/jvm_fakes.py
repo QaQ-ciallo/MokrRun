@@ -273,6 +273,8 @@ public class Context {
     public final ContentResolver resolver=new ContentResolver();
     public Context getApplicationContext() { return this; }
     public ContentResolver getContentResolver() { return resolver; }
+    /** 确认回执等出站广播：替身只记录，不投递 */
+    public void sendBroadcast(Intent i) { }
 }
 """,
     "android/content/Intent.java": """
@@ -280,11 +282,21 @@ package android.content;
 import java.util.*;
 public class Intent {
     final Map<String,Object> extras=new HashMap<String,Object>();
+    String action; String pkg;
+    public Intent() {}
+    public Intent(String action) { this.action=action; }
+    public Intent setPackage(String p) { pkg=p; return this; }
+    public String getPackage() { return pkg; }
+    public String getAction() { return action; }
     public Intent putExtra(String key, String value) { extras.put(key,value); return this; }
     public Intent putExtra(String key, int value) { extras.put(key,value); return this; }
+    public Intent putExtra(String key, boolean value) { extras.put(key,value); return this; }
     public String getStringExtra(String key) { return (String)extras.get(key); }
     public int getIntExtra(String key, int fallback) {
         Object v=extras.get(key); return v==null ? fallback : ((Integer) v).intValue();
+    }
+    public boolean getBooleanExtra(String key, boolean fallback) {
+        Object v=extras.get(key); return v==null ? fallback : ((Boolean) v).booleanValue();
     }
 }
 """,
@@ -564,7 +576,13 @@ def build(jdk, harness_files, production, overrides=None):
     if overrides:
         sources.update(overrides)
     fakes = _write_tree(base, sources)
-    prod = [str(PRODUCTION / (name + ".java")) for name in production]
+    prod = []
+    for name in production:
+        if "." in name:
+            # 带点的名字按 FQCN 相对 com/mokrun/app 解析（例如 data.RouteDraft）
+            prod.append(str(PRODUCTION.parents[3] / "com" / "mokrun" / "app" / (name.replace(".", "/") + ".java")))
+        else:
+            prod.append(str(PRODUCTION / (name + ".java")))
     subprocess.run([javac, "--release", "8", "-nowarn", "-encoding", "UTF-8",
                     "-d", str(base), *fakes, *prod], check=True)
 

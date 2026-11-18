@@ -127,6 +127,140 @@ public final class LocationHelper {
         }
     }
 
+    /** 带年龄的缓存：{lat, lon, accuracy, ageMs}；不可用返回 null */
+    public static double[] cachedWithAge(Context ctx) {
+        if (!hasPermission(ctx)) return null;
+        try {
+            LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) return null;
+            Location best = null;
+            String[] providers = {LocationManager.GPS_PROVIDER,
+                    LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER};
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < providers.length; i++) {
+                Location l = lm.getLastKnownLocation(providers[i]);
+                if (l == null) continue;
+                if (best == null || l.getTime() > best.getTime()) best = l;
+            }
+            if (best == null) return null;
+            double[] gcj = wgs2gcj(best.getLatitude(), best.getLongitude());
+            long age = Math.max(0L, now - best.getTime());
+            return new double[]{gcj[0], gcj[1], best.getAccuracy(), age};
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 定位开关是否可用 */
+    public static boolean locationEnabled(Context ctx) {
+        try {
+            LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) return false;
+            return lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** 新鲜定位请求的回调：预览、成功、失败三态互斥，一定有结束状态 */
+    public interface FreshCallback {
+        /** 只有预览意义的缓存（可能为空），不能据此宣布定位完成 */
+        void onPreview(double lat, double lon, float accuracy, long ageMs);
+        void onFresh(double lat, double lon, float accuracy);
+        void onError(String message);
+    }
+
+    /**
+     * 请求一次**新鲜**定位（「定位当前位置」按钮专用）。
+     * 请求进行中重复点击会被 LocateTracker 忽略；必定以 onFresh 或 onError 结束。
+     */
+    public static void requestFresh(final Context ctx, final LocateTracker tracker,
+                                    final FreshCallback cb) {
+        if (tracker == null || cb == null) return;
+        if (!hasPermission(ctx)) {
+            tracker.fail("未授予定位权限");
+            cb.onError("未授予定位权限：请允许定位后再试");
+            return;
+        }
+        if (!locationEnabled(ctx)) {
+            tracker.fail("系统定位已关闭");
+            cb.onError("系统定位已关闭：请打开定位开关后再试");
+            return;
+        }
+        if (!tracker.begin(System.currentTimeMillis())) return;   // 重复点击
+
+        double[] cache = cachedWithAge(ctx);
+        if (cache != null && LocateTracker.cacheUsable((long) cache[3])) {
+            cb.onPreview(cache[0], cache[1], (float) cache[2], (long) cache[3]);
+        }
+
+        final android.os.Handler h = new android.os.Handler(Looper.getMainLooper());
+        final Runnable timeout = new Runnable() {
+            @Override public void run() {
+                if (tracker.isRequesting()) {
+                    tracker.fail("定位超时");
+                    cb.onError("定位超时：没有在 " + (LocateTracker.TIMEOUT_MS / 1000)
+                            + " s 内拿到结果，请到开阔处重试");
+                }
+            }
+        };
+        h.postDelayed(timeout, LocateTracker.TIMEOUT_MS);
+
+        try {
+            final LocationManager lm =
+                    (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) {
+                h.removeCallbacks(timeout);
+                tracker.fail("定位服务不可用");
+                cb.onError("定位服务不可用");
+                return;
+            }
+            final String provider = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
+            if (Build.VERSION.SDK_INT >= 30) {
+                Executor exec = ctx.getMainExecutor();
+                lm.getCurrentLocation(provider, (CancellationSignal) null, exec,
+                        new Consumer<Location>() {
+                            @Override public void accept(Location l) {
+                                h.removeCallbacks(timeout);
+                                if (l == null) {
+                                    tracker.fail("没有取到定位结果");
+                                    cb.onError("没有取到定位结果，请重试");
+                                    return;
+                                }
+                                double[] g = wgs2gcj(l.getLatitude(), l.getLongitude());
+                                tracker.succeed();
+                                android.util.Log.i("MokrRunLoc", "fresh wgs="
+                                        + l.getLatitude() + "," + l.getLongitude()
+                                        + " gcj=" + g[0] + "," + g[1]);
+                                cb.onFresh(g[0], g[1], l.getAccuracy());
+                            }
+                        });
+            } else {
+                lm.requestSingleUpdate(provider, new LocationListener() {
+                    @Override public void onLocationChanged(Location l) {
+                        h.removeCallbacks(timeout);
+                        if (l == null) {
+                            tracker.fail("没有取到定位结果");
+                            cb.onError("没有取到定位结果，请重试");
+                            return;
+                        }
+                        double[] g = wgs2gcj(l.getLatitude(), l.getLongitude());
+                        tracker.succeed();
+                        cb.onFresh(g[0], g[1], l.getAccuracy());
+                    }
+                    @Override public void onStatusChanged(String p, int s, Bundle b) {}
+                    @Override public void onProviderEnabled(String p) {}
+                    @Override public void onProviderDisabled(String p) {}
+                }, Looper.getMainLooper());
+            }
+        } catch (Throwable t) {
+            h.removeCallbacks(timeout);
+            tracker.fail("定位请求异常");
+            cb.onError("定位请求异常：" + t);
+        }
+    }
     /** 缓存优先；没有就请求一次，回调在主线程，坐标已转 GCJ-02 */
     public static void requestOnce(final Context ctx, final Callback cb) {
         double[] c = cached(ctx);
