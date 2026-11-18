@@ -26,6 +26,8 @@ import java.util.Locale;
  */
 public class OriginActivity extends Activity {
 
+    public static final String EXTRA_DRAFT = "draft";
+
     private WebView web;
     private TextView coordText;
     private double curLat = 0, curLon = 0;
@@ -125,6 +127,14 @@ public class OriginActivity extends Activity {
     private void confirm() {
         if (curLat == 0 && curLon == 0) {
             Toast.makeText(this, "请先在地图上选一个点", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (getIntent().getBooleanExtra(EXTRA_DRAFT, false)) {
+            // 草稿模式：只写草稿，不改变目标应用的位置，也不下发
+            Store.setDraftOrigin(this, curLat + "," + curLon);
+            Toast.makeText(this, "起点已写入草稿（未生效）", Toast.LENGTH_SHORT).show();
+            setResult(RESULT_OK);
+            finish();
             return;
         }
         Store.setOrigin(this, curLat, curLon);

@@ -21,6 +21,7 @@ import android.widget.Toast;
 import com.mokrun.app.data.ConfigSync;
 import com.mokrun.app.data.LocateTracker;
 import com.mokrun.app.data.LocationHelper;
+import com.mokrun.app.data.RouteDraft;
 import com.mokrun.app.data.Store;
 
 import org.json.JSONArray;
@@ -62,6 +63,13 @@ public class MainActivity extends Activity {
             }
         });
 
+        View btnEnable = pageHome.findViewById(R.id.btnEnable);
+        if (btnEnable != null) {
+            btnEnable.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { enableAndOpen(); }
+            });
+        }
+
         pageHome.findViewById(R.id.btnRoute).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 if (Store.origin(MainActivity.this) == null) {
@@ -81,6 +89,45 @@ public class MainActivity extends Activity {
 
     }
 
+    /**
+     * 「启用并打开体适能」：建立一次预备会话（不要求有路线），然后打开目标应用。
+     * 目标进程在跑 → 显式广播；没在跑 → 拉起并由 onCreate 应用同一份配置。
+     */
+    private void enableAndOpen() {
+        String session = Store.newSessionId();
+        Store.setSessionId(this, session);
+        ConfigSync.setMode(this, ConfigSync.MODE_PREPARED);
+        boolean sent;
+        if (ConfigSync.isTargetRunning(this)) {
+            sent = ConfigSync.sendPrepare(this, session);
+        } else {
+            sent = ConfigSync.launchPrepared(this, session);
+        }
+        if (!sent) {
+            Toast.makeText(this, "启用失败：无法把会话送到体适能", Toast.LENGTH_LONG).show();
+            return;
+        }
+        FloatService.start(this);
+        Toast.makeText(this, "已启用 · 目标应用显示真实位置，点悬浮窗「开始」配置路线",
+                Toast.LENGTH_LONG).show();
+        refreshAll();
+    }
+
+    /** 从历史路线建立**草稿**（不改变正在运行的位置，也不立即生效） */
+    private void openDraftFromHistory(JSONObject r) {
+        try {
+            JSONObject o = r.optJSONObject("origin");
+            if (o != null) {
+                Store.setDraftOrigin(this, o.optDouble("lat", 0) + "," + o.optDouble("lng", 0));
+            }
+            JSONArray pts = r.optJSONArray("points");
+            if (pts != null) Store.setDraftWaypointsJson(this, pts.toString());
+            Store.setDraftName(this, r.optString("name", ""));
+            startActivity(new Intent(this, DraftActivity.class));
+        } catch (Throwable t) {
+            Toast.makeText(this, "载入草稿失败：" + t, Toast.LENGTH_LONG).show();
+        }
+    }
     // ---- home map ----------------------------------------------------------
 
     private void setupHomeMap() {
@@ -255,14 +302,18 @@ public class MainActivity extends Activity {
         double[] origin = Store.origin(this);
         boolean hasRoute = Store.activeRoute(this) != null;
 
-        if (mode == 1) {
+        if (mode == ConfigSync.MODE_PREPARED) {
+            st.setText("已启用 · 待配置");
+            st.setTextColor(getColor(R.color.primary));
+            hint.setText("目标应用显示真实位置 · 点悬浮窗「开始」配置并确认路线");
+        } else if (mode == ConfigSync.MODE_RUNNING) {
             st.setText("运行中");
             st.setTextColor(getColor(R.color.ok));
-            hint.setText("位置与步数同步推进 · 悬浮窗可调速/暂停/结束");
-        } else if (mode == 2) {
-            st.setText("就绪 · 已暂停");
+            hint.setText("位置与步数同步推进 · 悬浮窗可暂停/结束");
+        } else if (mode == ConfigSync.MODE_PAUSED) {
+            st.setText("已暂停");
             st.setTextColor(getColor(R.color.primary));
-            hint.setText(hasRoute ? "点悬浮窗「开始」后按路线跑" : "位置冻结在起点，去画路线");
+            hint.setText("位置冻结在暂停点 · 悬浮窗可继续或结束");
         } else {
             st.setText("未开始");
             st.setTextColor(getColor(R.color.text_primary));
@@ -342,14 +393,9 @@ public class MainActivity extends Activity {
 
         row.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                Store.setActiveIndex(MainActivity.this, index);
-                Store.syncOriginFromActive(MainActivity.this);
-                ConfigSync.push(MainActivity.this);
-                ConfigSync.setMode(MainActivity.this, 2);
-                FloatService.start(MainActivity.this);
-                Toast.makeText(MainActivity.this,
-                        "已载入该路线 · 点悬浮窗「开始」", Toast.LENGTH_SHORT).show();
-                refreshAll();
+                // 选中历史路线 = 建立草稿，不立即改变目标应用的位置；
+                // 真正生效要等配置界面的「确认路线并开始」。
+                openDraftFromHistory(r);
             }
         });
         row.setOnLongClickListener(new View.OnLongClickListener() {

@@ -33,6 +33,7 @@ public class Context {
     public ContentResolver getContentResolver() { return resolver; }
     public Object registerReceiver(BroadcastReceiver r, IntentFilter f) { return null; }
     public Object registerReceiver(BroadcastReceiver r, IntentFilter f, int flags) { return null; }
+    public void sendBroadcast(Intent i) { }
 }
 """
 

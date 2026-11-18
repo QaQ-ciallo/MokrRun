@@ -21,6 +21,8 @@ import java.util.Locale;
  */
 public class MapActivity extends Activity {
 
+    public static final String EXTRA_DRAFT = "draft";
+
     private WebView web;
     private double originLat = 0, originLon = 0;
 
@@ -73,6 +75,16 @@ public class MapActivity extends Activity {
             route.put("distance", src.optInt("distance", 0));
             route.put("createdAt", System.currentTimeMillis());
 
+            if (getIntent().getBooleanExtra(EXTRA_DRAFT, false)) {
+                // 草稿模式：只保存草稿，不写历史、不下发、不改目标位置
+                Store.setDraftOrigin(this, origin.optDouble("lat", 0) + ","
+                        + origin.optDouble("lng", 0));
+                Store.setDraftWaypointsJson(this, pts.toString());
+                Toast.makeText(this, "路线已写入草稿（未生效）", Toast.LENGTH_SHORT).show();
+                setResult(RESULT_OK);
+                finish();
+                return;
+            }
             Store.addHistory(this, route);
             Store.syncOriginFromActive(this);
             ConfigSync.push(this);

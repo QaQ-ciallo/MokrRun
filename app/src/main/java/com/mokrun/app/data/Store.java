@@ -151,6 +151,63 @@ public final class Store {
         setOrigin(ctx, o.optDouble("lat", 0), o.optDouble("lon", 0));
     }
 
+    // ---- 会话与草稿（预备 → 配置 → 确认）----------------------------------
+
+    private static final String KEY_SESSION = "sessionId";
+    private static final String KEY_DRAFT_ORIGIN = "draftOrigin";
+    private static final String KEY_DRAFT_ROUTE = "draftRoute";
+    private static final String KEY_DRAFT_NAME = "draftName";
+
+    /** 本次会话标识；没有会话时为 "" */
+    public static String sessionId(Context ctx) {
+        String s = prefs(ctx).getString(KEY_SESSION, "");
+        return s == null ? "" : s;
+    }
+
+    public static void setSessionId(Context ctx, String id) {
+        prefs(ctx).edit().putString(KEY_SESSION, id == null ? "" : id).apply();
+    }
+
+    /** 新会话标识（UUID，仅用于生命周期与幂等，不是安全鉴权） */
+    public static String newSessionId() {
+        return java.util.UUID.randomUUID().toString();
+    }
+
+    /** 草稿起点：为空时回退到当前保存的起点（只读回退，不写回） */
+    public static String draftOrigin(Context ctx) {
+        String v = prefs(ctx).getString(KEY_DRAFT_ORIGIN, "");
+        if (v != null && v.indexOf(',') > 0) return v;
+        String raw = prefs(ctx).getString(KEY_ORIGIN, "");
+        return raw == null ? "" : raw;
+    }
+
+    public static void setDraftOrigin(Context ctx, String origin) {
+        prefs(ctx).edit().putString(KEY_DRAFT_ORIGIN, origin == null ? "" : origin).apply();
+    }
+
+    /** 草稿途经点 JSON；为空时回退到当前活动路线（只读回退） */
+    public static String draftWaypointsJson(Context ctx) {
+        String v = prefs(ctx).getString(KEY_DRAFT_ROUTE, "");
+        if (v != null && v.trim().length() > 4) return v;
+        return ConfigSync.waypointsJson(ctx);
+    }
+
+    public static void setDraftWaypointsJson(Context ctx, String json) {
+        prefs(ctx).edit().putString(KEY_DRAFT_ROUTE, json == null ? "" : json).apply();
+    }
+
+    public static void setDraftName(Context ctx, String name) {
+        prefs(ctx).edit().putString(KEY_DRAFT_NAME, name == null ? "" : name).apply();
+    }
+
+    /** 清空草稿（取消编辑时调用）：不触碰已保存的路线与起点 */
+    public static void clearDraft(Context ctx) {
+        prefs(ctx).edit()
+                .remove(KEY_DRAFT_ORIGIN)
+                .remove(KEY_DRAFT_ROUTE)
+                .remove(KEY_DRAFT_NAME)
+                .apply();
+    }
     // ---- settings ----------------------------------------------------------
 
 

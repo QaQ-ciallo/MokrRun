@@ -127,6 +127,24 @@
                 android:layout_height="match_parent" />
         </FrameLayout>
 
+        <!-- 启用入口：建立预备会话并打开体适能（不要求先有路线） -->
+        <LinearLayout
+            android:id="@+id/btnEnable"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/btn_primary"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="启用并打开体适能"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
         <!-- two action buttons -->
         <LinearLayout
             android:layout_width="match_parent"
