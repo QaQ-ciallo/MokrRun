@@ -138,3 +138,200 @@
 11-18 07:40:23.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-458,0,1] MokrRun: real sensor events -> {31=50}
 11-18 07:40:27.235 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
 ---
+[07:41:32] sample#11 target_pid=23400
+11-18 07:40:27.235 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:40:33.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-459,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:40:43.598 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-45a,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:40:43.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-45b,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:40:53.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-45c,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:41:03.612 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-45d,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:41:03.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-45e,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:41:13.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-45f,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:41:23.631 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-460,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:41:23.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-461,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:41:32.087 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:41:33.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-462,0,1] MokrRun: real sensor events -> {31=50}
+---
+[07:42:37] sample#12 target_pid=23400
+11-18 07:41:32.087 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:41:33.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-462,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:41:43.645 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-463,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:41:43.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-464,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:41:53.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-465,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:42:03.663 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-466,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:42:03.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-467,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:42:13.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-468,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:42:23.680 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-469,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:42:23.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-46a,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:42:33.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-46b,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:42:36.504 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:43:42] sample#13 target_pid=23400
+11-18 07:43:13.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-471,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:43:23.736 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-472,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:43:23.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-473,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:43:28.643 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-474,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:43:28.643 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-475,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:43:28.649 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-476,0,1] MokrRun: gnss callback captured -> ex6$a
+11-18 07:43:28.649 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-477,0,1] MokrRun: gnss callback captured -> ex6$a
+11-18 07:43:28.649 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-478,0,1] MokrRun: gnss callback captured -> ex6$a
+11-18 07:43:33.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-479,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:43:41.521 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:43:43.747 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-47a,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:43:43.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-47b,0,1] MokrRun: real sensor events -> {31=50}
+---
+[07:44:47] sample#14 target_pid=23400
+11-18 07:43:43.747 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-47a,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:43:43.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-47b,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:43:53.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-47c,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:44:03.766 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-47d,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:44:03.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-47e,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:44:13.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-47f,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:44:23.780 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-480,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:44:23.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-481,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:44:33.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-482,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:44:43.800 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-483,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:44:43.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-484,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:44:46.400 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:45:50] sample#15 target_pid=23400
+11-18 07:44:43.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-484,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:44:46.400 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:44:53.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-485,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:45:03.817 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-486,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:45:03.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-487,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:45:13.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-488,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:45:23.831 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-489,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:45:23.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48a,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:45:33.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48b,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:45:43.854 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48c,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:45:43.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48d,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:45:49.909 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:46:54] sample#16 target_pid=23400
+11-18 07:45:43.854 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48c,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:45:43.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48d,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:45:49.909 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:45:53.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48e,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:46:03.863 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:46:03.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-490,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:46:09.161 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-492,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:46:09.161 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-493,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-494,0,1] MokrRun: location listener removed
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-495,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-496,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:53.488 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:47:59] sample#17 target_pid=23400
+11-18 07:45:43.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48d,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:45:49.909 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:45:53.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48e,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:46:03.863 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:46:03.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-490,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:46:09.161 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-492,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:46:09.161 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-493,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-494,0,1] MokrRun: location listener removed
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-495,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-496,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:53.488 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:47:58.717 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:49:03] sample#18 target_pid=23400
+11-18 07:45:49.909 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:45:53.902 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48e,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:46:03.863 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+11-18 07:46:03.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-490,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:46:09.161 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-492,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:46:09.161 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-493,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-494,0,1] MokrRun: location listener removed
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-495,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-496,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:53.488 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:47:58.717 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:49:02.440 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:50:06] sample#19 target_pid=23400
+11-18 07:46:03.901 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-490,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:46:09.161 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-492,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:46:09.161 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe6-493,0,1] MokrRun: removeUpdates captured ex6$c
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-494,0,1] MokrRun: location listener removed
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-495,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-496,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:53.488 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:47:58.717 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:49:02.440 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:49:46.043 I/MokrRunCfg(13029): provider served config
+11-18 07:49:46.997 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: idle mode=' | tail -1
+11-18 07:50:06.199 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:51:10] sample#20 target_pid=23400
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-495,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:09.163 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-3fe9-496,0,1] MokrRun: removeUpdates captured com.autonavi.aps.amapapi.c$a
+11-18 07:46:53.488 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:47:58.717 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:49:02.440 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:49:46.043 I/MokrRunCfg(13029): provider served config
+11-18 07:49:46.997 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: idle mode=' | tail -1
+11-18 07:50:06.199 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:50:24.977 I/MokrRunCfg(13029): provider served config
+11-18 07:50:25.919 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'FuckTSN-Sign \[Token响应\]|MokrRun: Application attached' | tail -2
+11-18 07:50:49.268 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (idle mode=|command mode=|applied from intent|config via|step listener|face check|face freeze)' | grep -v 'in ShellService' | tail -3
+11-18 07:51:09.995 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:52:14] sample#21 target_pid=23400
+11-18 07:50:49.268 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (idle mode=|command mode=|applied from intent|config via|step listener|face check|face freeze)' | grep -v 'in ShellService' | tail -3
+11-18 07:51:09.995 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:51:20.267 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (idle mode=|command mode=|applied from intent|config via|step listener|face check|face freeze)' | grep -v 'in ShellService' | tail -3
+11-18 07:51:46.604 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:51:46.781 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:51:50.983 I/MokrRunCfg(13029): pushed via Settings.Global
+11-18 07:51:50.992 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:51:51.233 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (idle mode=|command mode=|applied from intent|config via|step listener|face check|face freeze)' | grep -v 'in ShellService' | tail -3
+11-18 07:52:01.104 I/MokrRunCfg(13029): pushed via Settings.Global
+11-18 07:52:01.120 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:52:09.756 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:52:13.644 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:53:17] sample#22 target_pid=23400
+11-18 07:52:01.104 I/MokrRunCfg(13029): pushed via Settings.Global
+11-18 07:52:01.120 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:52:09.756 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:52:13.644 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:52:22.153 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (idle mode=|command mode=|applied from intent|config via|step listener|face check|face freeze)' | grep -v 'in ShellService' | tail -3
+11-18 07:52:27.150 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:52:28.053 I/MokrRunCfg(13029): pushed via Settings.Global
+11-18 07:52:28.060 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:52:33.743 I/MokrRunCfg(13029): pushed via Settings.Global
+11-18 07:52:33.759 I/MokrRunLoc(13029): cached=gps wgs=23.07022703,113.96857844 gcj=23.067436588342005,113.9735319418606
+11-18 07:52:53.093 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (idle mode=|command mode=|applied from intent|config via|step listener|face check|face freeze)' | grep -v 'in ShellService' | tail -3
+11-18 07:53:17.000 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+---
+[07:54:21] sample#23 target_pid=8865
+11-18 07:53:41.186 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-199,0,1] MokrRun: face check done -> resume mode=0
+11-18 07:53:48.236 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-19a,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=false
+11-18 07:53:49.817 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-19b,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:53:55.506 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (idle mode=|command mode=|applied from intent|config via|step listener|face check|face freeze)' | grep -v 'in ShellService' | tail -3
+11-18 07:53:59.817 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-19c,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:54:01.901 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-3f9e-19d,0,1] MokrRun: removeUpdates captured com.uyumao.d$a
+11-18 07:54:01.901 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-3f9e-19e,0,1] MokrRun: removeUpdates captured com.uyumao.d$a
+11-18 07:54:08.254 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-19f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=false
+11-18 07:54:09.816 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-1a0,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:54:19.817 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-1a1,0,1] MokrRun: real sensor events -> {31=50}
+11-18 07:54:20.959 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:54:22.603 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (applied from intent|config via|command mode|tick dist=|idle mode=)' | grep -v 'in ShellService' | tail -4
+---
+[07:55:27] sample#24 target_pid=8865
+11-18 07:55:18.758 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-25c,0,1] MokrRun: tick dist=49.5m steps=32 pos=23.067268,113.974833 seg=0/22
+11-18 07:55:20.096 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-3f89-25d,0,1] MokrRun: real sensor events -> {11=333, 61=35, 31=90, 111=30}
+11-18 07:55:23.790 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-25e,0,1] MokrRun: tick dist=73.7m steps=47 pos=23.067141,113.974642 seg=0/22
+11-18 07:55:26.345 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun|MokrRunProbe|MokrRunCfg' | tail -12
+11-18 07:55:28.163 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (command mode=|face check|step listener|face freeze)' | grep -v 'in ShellService' | tail -2
+11-18 07:55:28.497 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-25f,0,1] MokrRun: gnss emit -> count=15 usedInFix=true targets=7
+11-18 07:55:28.531 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-3f89-260,0,1] MokrRun: SDK getter faked -> AMapLocation.getLongitude
+11-18 07:55:28.533 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-261,0,1] MokrRun: qr fake applied -> status=2
+11-18 07:55:28.820 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-262,0,1] MokrRun: getter stats -> qr:isInstalledHighDangerMockApp=10(last false) caller:getLatitude=10(last sdk:com.autonavi.aps.amapapi.utils.j#b:140) getLocationQualityReport=100(last com.amap.api.location.AMapLocationQualityReport) getCoordType=30(last GCJ02) qr:getGPSStatus=20(last 0) qr:getGPSSatellites=10(last 15) getLocationDetail=30(last #id:SdGtuZWptZWZqZmVlM2k3NjZmZWI4NGRkMTY5ODhlLA==#csid:2c42a49bd9444f01975aa4fbd710fdde) caller:getLongitude=10(last sdk:com.autonavi.aps.amapapi.utils.j#b:139) qr:isWifiAble=10(last true) getTrustedLevel=40(last 2)
+11-18 07:55:28.821 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-263,0,1] MokrRun: tick dist=97.8m steps=63 pos=23.066975,113.974563 seg=1/22
+11-18 07:55:29.224 I/adbd    ( 3059): in ShellService: logcat -d -v time | grep -E 'MokrRun: (idle mode=|command mode=|applied from intent|config via|step listener|face check|face freeze)' | grep -v 'in ShellService' | tail -3
+11-18 07:55:30.103 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-3f89-264,0,1] MokrRun: real sensor events -> {41=32, 11=637, 91=31, 61=35, 31=90, 111=30}
+---
+[07:56:32] sampling finished
