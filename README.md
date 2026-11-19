@@ -6,7 +6,7 @@
 
 **在地图上画一条线，让它替你跑完**
 
-[![Release](https://img.shields.io/badge/release-v1.0.152-3482FF?style=flat-square)](../../releases)
+[![Release](https://img.shields.io/badge/release-v1.0.153-3482FF?style=flat-square)](../../releases)
 [![Download](https://img.shields.io/badge/download-APK-2EA44F?style=flat-square&logo=android&logoColor=white)](../../releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](#-兼容性)
@@ -20,7 +20,7 @@
 
 ### ⬇️ 下载
 
-[**MokrRun-1.0.152.apk**](../../releases/latest) · 346 KB · Android 8.0+
+[**MokrRun-1.0.153.apk**](../../releases/latest) · 346 KB · Android 8.0+
 
 <sub>所有版本见 [Releases](../../releases) 页</sub>
 
@@ -90,7 +90,7 @@
 
 ### 安装
 
-1. 从 Releases 下载 `MokrRun-1.0.152.apk` 并安装（升级安装时如需回滚，见文末「升级与回滚」）
+1. 从 Releases 下载 `MokrRun-1.0.153.apk` 并安装（升级安装时如需回滚，见文末「升级与回滚」）
 2. 打开 **LSPosed** → 模块列表 → 启用「随心跑」
 3. 进入作用域设置，**勾选目标应用**（默认 `com.bxkj.student`）
 4. 强制停止目标应用一次，让它重新加载模块
@@ -317,8 +317,8 @@ $env:MOKR_KS_PASS = "yourpass"
 
 ## 🔄 升级与回滚
 
-- **升级**：直接 `adb install -r MokrRun-1.0.152.apk` 覆盖安装，prefs 与已保存路线保留；
+- **升级**：直接 `adb install -r MokrRun-1.0.153.apk` 覆盖安装，prefs 与已保存路线保留；
   升级后如 LSPosed 作用域丢失，需要重新勾选目标应用并强制停止目标应用一次。
 - **回滚**：`adb install -r -d MokrRun-<旧版本>.apk`（`-d` 允许降级）。旧版本缓存与路线格式兼容，
-  但 1.0.152 的 `draft*` / `sessionId` 键在旧版本中不会被读取，不影响旧版本运行。
+  但 1.0.153 的 `draft*` / `sessionId` 键在旧版本中不会被读取，不影响旧版本运行。
 - **彻底清理**：`adb shell pm clear com.mokrun.app`（会清掉路线、草稿与会话）。
