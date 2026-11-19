@@ -174,7 +174,15 @@ public class DraftActivity extends Activity {
                 ? "起点：未设置" : "起点：" + origin);
         tvRoute.setText("途经点：" + (n < 0 ? "（数据异常）" : n + " 个")
                 + "　" + ConfigSync.modeName(ConfigSync.getMode(this)));
-        if (n < 1) setStatus("还没有途经点：请先「绘制路线」。");
+        String shapeErr = RouteDraft.validateShape(origin, route);
+        if (shapeErr != null) {
+            setStatus(shapeErr);
+        } else {
+            // 草稿已经完整：清掉旧的提示，并恢复按钮文案
+            allowFarConfirmed = false;
+            if (btnConfirm != null) btnConfirm.setText("确认路线并开始");
+            setStatus("");
+        }
     }
 
     // ---- 确认 -------------------------------------------------------------
@@ -313,9 +321,16 @@ public class DraftActivity extends Activity {
                 pendingToken = null;
                 Store.clearDraft(DraftActivity.this);
                 Store.setRunMode(DraftActivity.this, ConfigSync.MODE_RUNNING);
-                setStatus("已开始运行");
-                Toast.makeText(DraftActivity.this, "已开始运行", Toast.LENGTH_SHORT).show();
-                ConfigSync.bringTargetToFront(DraftActivity.this);
+                boolean nav = ConfigSync.bringTargetToFront(DraftActivity.this);
+                if (nav) {
+                    setStatus("已开始运行");
+                    Toast.makeText(DraftActivity.this, "已开始运行", Toast.LENGTH_SHORT).show();
+                } else {
+                    // 状态已切到运行，但没能切回目标应用：两个结果都如实反馈
+                    setStatus("已开始运行，但打开体适能失败：请手动切回体适能");
+                    Toast.makeText(DraftActivity.this,
+                            "已开始运行，但打开体适能失败：请手动切回", Toast.LENGTH_LONG).show();
+                }
         finish();
     }
 }
