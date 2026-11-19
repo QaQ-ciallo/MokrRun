@@ -70,6 +70,7 @@ public class DraftActivity extends Activity {
     protected void onDestroy() {
         super.onDestroy();
         handler.removeCallbacksAndMessages(null);
+        AckReceiver.clearListener(null);
         if (ackReceiver != null) {
             try { unregisterReceiver(ackReceiver); } catch (Throwable ignored) {}
             ackReceiver = null;
@@ -238,8 +239,27 @@ public class DraftActivity extends Activity {
     }
 
     private void registerAck() {
+        AckReceiver.setListener(new AckReceiver.Listener() {
+            @Override public void onAck(Intent intent) { handleAck(intent); }
+        });
         ackReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
+                handleAck(intent);
+            }
+        };
+        try {
+            IntentFilter f = new IntentFilter(ConfigSync.ACK_ACTION);
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(ackReceiver, f, Context.RECEIVER_EXPORTED);
+            } else {
+                registerReceiver(ackReceiver, f);
+            }
+        } catch (Throwable t) {
+            setStatus("注册回执接收失败：" + t);
+        }
+    }
+
+    private void handleAck(Intent intent) {
                 if (intent == null) return;
                 String op = intent.getStringExtra("op");
                 if (op != null && !"confirm".equals(op)) return;   // 忽略 PREPARE/CLEAR 回执
@@ -263,18 +283,6 @@ public class DraftActivity extends Activity {
                 setStatus("已开始运行");
                 Toast.makeText(DraftActivity.this, "已开始运行", Toast.LENGTH_SHORT).show();
                 ConfigSync.bringTargetToFront(DraftActivity.this);
-                finish();
-            }
-        };
-        try {
-            IntentFilter f = new IntentFilter(ConfigSync.ACK_ACTION);
-            if (android.os.Build.VERSION.SDK_INT >= 33) {
-                registerReceiver(ackReceiver, f, Context.RECEIVER_EXPORTED);
-            } else {
-                registerReceiver(ackReceiver, f);
-            }
-        } catch (Throwable t) {
-            setStatus("注册回执接收失败：" + t);
-        }
+        finish();
     }
 }

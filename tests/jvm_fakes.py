@@ -195,6 +195,16 @@ public class Handler {
 package android.os;
 import java.util.*;
 public class Bundle {
+    final java.util.Map<String,Object> map=new java.util.HashMap<String,Object>();
+    public void putString(String k, String v) { map.put(k,v); }
+    public void putBoolean(String k, boolean v) { map.put(k,v); }
+    public void putLong(String k, long v) { map.put(k,v); }
+    public String getString(String k, String d) { Object v=map.get(k); return v==null?d:(String)v; }
+    public String getString(String k) { return getString(k, null); }
+    public boolean getBoolean(String k, boolean d) { Object v=map.get(k); return v==null?d:((Boolean)v).booleanValue(); }
+    public boolean getBoolean(String k) { return getBoolean(k, false); }
+    public long getLong(String k, long d) { Object v=map.get(k); return v==null?d:((Long)v).longValue(); }
+    public boolean containsKey(String k) { return map.containsKey(k); }
     final Map<String,Object> values=new HashMap<String,Object>();
     public void putInt(String key, int value) { values.put(key, Integer.valueOf(value)); }
     public int getInt(String key, int fallback) {
@@ -245,6 +255,7 @@ package android.content;
 import android.database.Cursor;
 import android.net.Uri;
 public class ContentResolver {
+    public android.os.Bundle call(android.net.Uri uri, String method, String arg, android.os.Bundle extras) { return null; }
     /** 测试通过给 row 赋值来模拟 App 侧 prefs 的当前内容 */
     public Cursor row;
     public int queries=0;
@@ -286,6 +297,9 @@ public class Intent {
     public Intent() {}
     public Intent(String action) { this.action=action; }
     public Intent setPackage(String p) { pkg=p; return this; }
+    String cls;
+    public Intent setClassName(String pkg, String cls) { this.pkg=pkg; this.cls=cls; return this; }
+    public String getComponentClassName() { return cls; }
     public String getPackage() { return pkg; }
     public String getAction() { return action; }
     public Intent putExtra(String key, String value) { extras.put(key,value); return this; }
@@ -295,6 +309,10 @@ public class Intent {
     public int getIntExtra(String key, int fallback) {
         Object v=extras.get(key); return v==null ? fallback : ((Integer) v).intValue();
     }
+    public long getLongExtra(String key, long fallback) {
+        Object v=extras.get(key); return v==null ? fallback : ((Long) v).longValue();
+    }
+    public Intent putExtra(String key, long value) { extras.put(key,value); return this; }
     public boolean getBooleanExtra(String key, boolean fallback) {
         Object v=extras.get(key); return v==null ? fallback : ((Boolean) v).booleanValue();
     }

@@ -94,6 +94,24 @@ public class PrepareFlowRegression {
             if (p.stopped) break;
         }
     }
+    static boolean waitForAck(long ms) throws Exception {
+        return waitForAckOp("prepare", ms);
+    }
+
+    /** 等某个 op 的回执（prepare 的慢速重试可能仍在发，不能只看「有没有」） */
+    static boolean waitForAckOp(String op, long ms) throws Exception {
+        long end = System.currentTimeMillis() + ms;
+        while (System.currentTimeMillis() < end) {
+            synchronized (Context.SentBroadcasts) {
+                for (Intent i : Context.SentBroadcasts) {
+                    if (op.equals(i.getStringExtra("op"))) return true;
+                }
+            }
+            Thread.sleep(20L);
+        }
+        return false;
+    }
+
     static class LocListener implements LocationListener {
         int count;
         public void onLocationChanged(Location loc) { count++; }
@@ -391,7 +409,7 @@ public class PrepareFlowRegression {
             Context.SentBroadcasts.clear();
             String err = MotionEngine.applyConfirm("s1", "t1", CFG, "abc", ROUTE);
             check(err != null, "非法路线未被拒绝");
-            check(!Context.SentBroadcasts.isEmpty(), "拒绝确认没有发出任何回执");
+            check(waitForAckOp("confirm", 2000L), "rejection sent no ack");
             Intent last = Context.SentBroadcasts.get(Context.SentBroadcasts.size() - 1);
             check("com.mokrun.app.ACK".equals(last.getAction()), "回执 action 不对");
             check(!last.getBooleanExtra("ok", true), "回执没有标记失败");
@@ -476,7 +494,7 @@ public class PrepareFlowRegression {
             MotionEngine.configure(ctx);
             Context.SentBroadcasts.clear();
             MotionEngine.prepareSession("s-ack", CFG);
-            check(!Context.SentBroadcasts.isEmpty(), "prepare sent no ack");
+            check(waitForAck(1500L), "prepare sent no ack");
             Intent ack = Context.SentBroadcasts.get(Context.SentBroadcasts.size() - 1);
             check("com.mokrun.app.ACK".equals(ack.getAction()), "ack action wrong");
             check("prepare".equals(ack.getStringExtra("op")), "ack op must be prepare");

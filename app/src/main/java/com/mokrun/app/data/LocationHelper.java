@@ -190,77 +190,96 @@ public final class LocationHelper {
         }
         if (!tracker.begin(System.currentTimeMillis())) return;   // 重复点击
 
-        double[] cache = cachedWithAge(ctx);
+        final long startedAt = System.currentTimeMillis();
+        final double[] cache = cachedWithAge(ctx);
+        // 已经足够新的缓存就是「当前位置」，不必再等
+        if (cache != null && (long) cache[3] <= LocateTracker.FRESH_ENOUGH_MS) {
+            tracker.succeed();
+            cb.onFresh(cache[0], cache[1], (float) cache[2]);
+            return;
+        }
         if (cache != null && LocateTracker.cacheUsable((long) cache[3])) {
             cb.onPreview(cache[0], cache[1], (float) cache[2], (long) cache[3]);
         }
 
         final android.os.Handler h = new android.os.Handler(Looper.getMainLooper());
-        final Runnable timeout = new Runnable() {
+        final LocationManager lm;
+        try {
+            lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+        } catch (Throwable t) {
+            tracker.fail("定位服务不可用");
+            cb.onError("定位服务不可用");
+            return;
+        }
+        if (lm == null) {
+            tracker.fail("定位服务不可用");
+            cb.onError("定位服务不可用");
+            return;
+        }
+
+        // 两个 provider 同时等，谁先给可用点就用谁（室内 GPS 常常几十秒才定位，
+        // 只等 GPS 会直接超时——这是实机验收里发现的真实问题）
+        final LocationListener listener = new LocationListener() {
+            @Override public void onLocationChanged(Location l) {
+                if (l == null || !tracker.isRequesting()) return;
+                h.removeCallbacksAndMessages(null);
+                try { lm.removeUpdates(this); } catch (Throwable ignored) {}
+                double[] g = wgs2gcj(l.getLatitude(), l.getLongitude());
+                tracker.succeed();
+                android.util.Log.i("MokrRunLoc", "fresh " + l.getProvider()
+                        + " wgs=" + l.getLatitude() + "," + l.getLongitude()
+                        + " gcj=" + g[0] + "," + g[1]
+                        + " age=" + (System.currentTimeMillis() - l.getTime()) + "ms");
+                cb.onFresh(g[0], g[1], l.getAccuracy());
+            }
+            @Override public void onStatusChanged(String p, int s, Bundle b) {}
+            @Override public void onProviderEnabled(String p) {}
+            @Override public void onProviderDisabled(String p) {}
+        };
+
+        final Runnable giveUp = new Runnable() {
             @Override public void run() {
-                if (tracker.isRequesting()) {
-                    tracker.fail("定位超时");
-                    cb.onError("定位超时：没有在 " + (LocateTracker.TIMEOUT_MS / 1000)
-                            + " s 内拿到结果，请到开阔处重试");
+                if (!tracker.isRequesting()) return;
+                try { lm.removeUpdates(listener); } catch (Throwable ignored) {}
+                double[] late = cachedWithAge(ctx);
+                if (late != null && LocateTracker.usableFallback((long) late[3])) {
+                    tracker.succeed();
+                    long ageSec = Math.max(0L, (long) late[3] / 1000);
+                    android.util.Log.i("MokrRunLoc", "fallback cached age=" + ageSec + "s");
+                    cb.onFresh(late[0], late[1], (float) late[2]);
+                    return;
                 }
+                tracker.fail("定位超时");
+                cb.onError("定位超时：没有在 " + (LocateTracker.TIMEOUT_MS / 1000)
+                        + " s 内拿到结果，请到开阔处重试");
             }
         };
-        h.postDelayed(timeout, LocateTracker.TIMEOUT_MS);
+        h.postDelayed(giveUp, LocateTracker.TIMEOUT_MS);
 
         try {
-            final LocationManager lm =
-                    (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
-            if (lm == null) {
-                h.removeCallbacks(timeout);
-                tracker.fail("定位服务不可用");
-                cb.onError("定位服务不可用");
-                return;
+            boolean any = false;
+            if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f,
+                        listener, Looper.getMainLooper());
+                any = true;
             }
-            final String provider = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                    ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
-            if (Build.VERSION.SDK_INT >= 30) {
-                Executor exec = ctx.getMainExecutor();
-                lm.getCurrentLocation(provider, (CancellationSignal) null, exec,
-                        new Consumer<Location>() {
-                            @Override public void accept(Location l) {
-                                h.removeCallbacks(timeout);
-                                if (l == null) {
-                                    tracker.fail("没有取到定位结果");
-                                    cb.onError("没有取到定位结果，请重试");
-                                    return;
-                                }
-                                double[] g = wgs2gcj(l.getLatitude(), l.getLongitude());
-                                tracker.succeed();
-                                android.util.Log.i("MokrRunLoc", "fresh wgs="
-                                        + l.getLatitude() + "," + l.getLongitude()
-                                        + " gcj=" + g[0] + "," + g[1]);
-                                cb.onFresh(g[0], g[1], l.getAccuracy());
-                            }
-                        });
-            } else {
-                lm.requestSingleUpdate(provider, new LocationListener() {
-                    @Override public void onLocationChanged(Location l) {
-                        h.removeCallbacks(timeout);
-                        if (l == null) {
-                            tracker.fail("没有取到定位结果");
-                            cb.onError("没有取到定位结果，请重试");
-                            return;
-                        }
-                        double[] g = wgs2gcj(l.getLatitude(), l.getLongitude());
-                        tracker.succeed();
-                        cb.onFresh(g[0], g[1], l.getAccuracy());
-                    }
-                    @Override public void onStatusChanged(String p, int s, Bundle b) {}
-                    @Override public void onProviderEnabled(String p) {}
-                    @Override public void onProviderDisabled(String p) {}
-                }, Looper.getMainLooper());
+            if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0L, 0f,
+                        listener, Looper.getMainLooper());
+                any = true;
+            }
+            if (!any) {
+                h.removeCallbacks(giveUp);
+                tracker.fail("没有可用的定位提供者");
+                cb.onError("没有可用的定位提供者：请检查定位设置");
             }
         } catch (Throwable t) {
-            h.removeCallbacks(timeout);
+            h.removeCallbacks(giveUp);
             tracker.fail("定位请求异常");
             cb.onError("定位请求异常：" + t);
         }
     }
+
     /** 缓存优先；没有就请求一次，回调在主线程，坐标已转 GCJ-02 */
     public static void requestOnce(final Context ctx, final Callback cb) {
         double[] c = cached(ctx);

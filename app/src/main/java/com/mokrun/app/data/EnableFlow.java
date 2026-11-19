@@ -15,7 +15,7 @@ public final class EnableFlow {
     public enum Phase { IDLE, SENT, ACKED, FAILED }
 
     /** 等待 PREPARE 回执的超时时间 */
-    public static final long ACK_TIMEOUT_MS = 6000L;
+    public static final long ACK_TIMEOUT_MS = 8000L;
 
     private Phase phase = Phase.IDLE;
     private String session = "";

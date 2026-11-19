@@ -108,6 +108,10 @@ public class MainActivity extends Activity {
             return;
         }
         registerEnableAck();
+        // 先把常驻前台服务拉起来：模块 App 一旦退到后台，系统会拒绝解析它的
+        // ContentProvider（No provider info ... providerRunning is false）并把广播排队，
+        // 回执就送不回来。进程保活是回执可达的前提。
+        FloatService.start(this);
         boolean sent = ConfigSync.isTargetRunning(this)
                 ? ConfigSync.sendPrepare(this, session)
                 : ConfigSync.launchPrepared(this, session);
@@ -135,9 +139,29 @@ public class MainActivity extends Activity {
     };
 
     private void registerEnableAck() {
+        // 静态接收器（显式组件广播）是主通道；动态注册保留做兜底
+        AckReceiver.setListener(new AckReceiver.Listener() {
+            @Override public void onAck(Intent intent) { handleEnableAck(intent); }
+        });
         if (enableAckReceiver != null) return;
         enableAckReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
+                handleEnableAck(intent);
+            }
+        };
+        try {
+            IntentFilter f = new IntentFilter(ConfigSync.ACK_ACTION);
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(enableAckReceiver, f, Context.RECEIVER_EXPORTED);
+            } else {
+                registerReceiver(enableAckReceiver, f);
+            }
+        } catch (Throwable t) {
+            android.util.Log.e("MokrRun", "register enable ack failed", t);
+        }
+    }
+
+    private void handleEnableAck(Intent intent) {
                 if (intent == null) return;
                 String op = intent.getStringExtra("op");
                 if (!"prepare".equals(op)) return;      // 确认/清除的回执不在这里处理
@@ -168,24 +192,13 @@ public class MainActivity extends Activity {
                             "已启用，但打开体适能失败：请手动切到体适能", Toast.LENGTH_LONG).show();
                 }
                 refreshAll();
-            }
-        };
-        try {
-            IntentFilter f = new IntentFilter(ConfigSync.ACK_ACTION);
-            if (android.os.Build.VERSION.SDK_INT >= 33) {
-                registerReceiver(enableAckReceiver, f, Context.RECEIVER_EXPORTED);
-            } else {
-                registerReceiver(enableAckReceiver, f);
-            }
-        } catch (Throwable t) {
-            android.util.Log.e("MokrRun", "register enable ack failed", t);
-        }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         uiHandler.removeCallbacks(enableTimeout);
+        AckReceiver.clearListener(null);
         if (enableAckReceiver != null) {
             try { unregisterReceiver(enableAckReceiver); } catch (Throwable ignored) {}
             enableAckReceiver = null;

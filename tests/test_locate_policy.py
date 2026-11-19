@@ -49,6 +49,15 @@ public class LocatePolicyRegression {
             check(t.state() == LocateTracker.State.DONE, "success must end the request");
             check(t.requestCount() == 2, "request count wrong after retry");
             check(LocateTracker.cacheUsable(0), "fresh cache rejected");
+            // 实机缺陷回归：够新的缓存直接当结果；等不到新点时允许兜底
+            check(LocateTracker.FRESH_ENOUGH_MS < LocateTracker.FALLBACK_MAX_AGE_MS,
+                    "fresh-enough window must be shorter than fallback window");
+            check(LocateTracker.usableFallback(0), "fallback rejected a fresh fix");
+            check(LocateTracker.usableFallback(LocateTracker.FALLBACK_MAX_AGE_MS),
+                    "fallback rejected at the edge");
+            check(!LocateTracker.usableFallback(LocateTracker.FALLBACK_MAX_AGE_MS + 1),
+                    "fallback accepted a stale fix");
+            check(!LocateTracker.usableFallback(-1), "fallback accepted unknown age");
             check(LocateTracker.cacheUsable(LocateTracker.PREVIEW_MAX_AGE_MS),
                     "cache at the edge rejected");
             check(!LocateTracker.cacheUsable(LocateTracker.PREVIEW_MAX_AGE_MS + 1),

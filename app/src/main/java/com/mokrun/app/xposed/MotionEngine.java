@@ -806,22 +806,83 @@ public final class MotionEngine {
         sendAck(session, token, ok, reason, OP_CONFIRM);
     }
 
-    private static void sendAck(String session, String token, boolean ok, String reason,
-                                String kind) {
+    /** 进程内兜底取 Context：sCtx 未初始化时（例如 onCreate 早于 configure）用它发回执 */
+    private static android.content.Context ackContext() {
+        if (sCtx != null) return sCtx;
         try {
-            if (sCtx == null) return;
-            android.content.Intent i = new android.content.Intent(ACTION_ACK);
-            i.setPackage("com.mokrun.app");
-            i.putExtra("session", session == null ? "" : session);
-            i.putExtra("token", token == null ? "" : token);
-            i.putExtra("ok", ok);
-            i.putExtra("op", kind == null ? OP_CONFIRM : kind);
-            i.putExtra("mode", sMode);
-            if (reason != null) i.putExtra("reason", reason);
-            sCtx.sendBroadcast(i);
+            // ActivityThread 是 @hide API：走反射，避免编译期依赖隐藏符号
+            Class<?> at = Class.forName("android.app.ActivityThread");
+            Object app = at.getMethod("currentApplication").invoke(null);
+            if (app instanceof android.content.Context) {
+                android.content.Context c = (android.content.Context) app;
+                android.content.Context appCtx = c.getApplicationContext();
+                sCtx = appCtx != null ? appCtx : c;
+            }
         } catch (Throwable t) {
-            XposedBridge.log(TAG + ": ack send failed " + t);
+            XposedBridge.log(TAG + ": ack context fallback failed " + t);
         }
+        return sCtx;
+    }
+
+    private static void sendAck(final String session, final String token, final boolean ok,
+                                final String reason, final String kind) {
+        final android.content.Context ctx = ackContext();
+        if (ctx == null) {
+            XposedBridge.log(TAG + ": ack skipped (no context) op=" + kind);
+            return;
+        }
+        final String k = kind == null ? OP_CONFIRM : kind;
+        final android.content.Intent intent = new android.content.Intent(ACTION_ACK);
+        intent.setPackage("com.mokrun.app");
+        intent.setClassName("com.mokrun.app", "com.mokrun.app.AckReceiver");
+        intent.putExtra("op", k);
+        intent.putExtra("session", session == null ? "" : session);
+        intent.putExtra("token", token == null ? "" : token);
+        intent.putExtra("ok", ok);
+        intent.putExtra("mode", sMode);
+        intent.putExtra("at", System.currentTimeMillis());
+        if (reason != null) intent.putExtra("reason", reason);
+
+        // 回执必须「尽力送达」：模块 App 刚被拉起时 Provider 还没发布（实测
+        // Unknown authority）、广播也会被排队，所以两种通道都重试几次。
+        new Thread(new Runnable() {
+            @Override public void run() {
+                for (int attempt = 0; attempt < 4; attempt++) {
+                    boolean delivered = false;
+                    try {
+                        android.os.Bundle b = new android.os.Bundle();
+                        b.putString("op", k);
+                        b.putString("session", session == null ? "" : session);
+                        b.putString("token", token == null ? "" : token);
+                        b.putBoolean("ok", ok);
+                        b.putInt("mode", sMode);
+                        b.putLong("at", System.currentTimeMillis());
+                        if (reason != null) b.putString("reason", reason);
+                        android.os.Bundle r = ctx.getContentResolver().call(
+                                android.net.Uri.parse("content://com.mokrun.app.config"),
+                                "ack", null, b);
+                        delivered = r != null && r.getBoolean("received");
+                    } catch (Throwable t) {
+                        if (attempt == 3) {
+                            XposedBridge.log(TAG + ": ack provider failed " + t);
+                        }
+                    }
+                    try {
+                        ctx.sendBroadcast(intent);
+                    } catch (Throwable ignored) {
+                    }
+                    XposedBridge.log(TAG + ": ack attempt=" + (attempt + 1)
+                            + " op=" + k + " provider=" + delivered
+                            + " session=" + session);
+                    if (delivered) return;
+                    try {
+                        Thread.sleep(400L + attempt * 400L);
+                    } catch (Throwable ignored) {
+                    }
+                }
+                XposedBridge.log(TAG + ": ack undelivered op=" + k + " session=" + session);
+            }
+        }, "mokr-ack").start();
     }
 
     /** 只解析并应用参数（speed/cadence/stride/sat/qr/spdmax/rs/alt/acc），不碰路线与状态 */

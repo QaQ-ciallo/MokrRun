@@ -16,6 +16,10 @@ public final class LocateTracker {
     public static final long PREVIEW_MAX_AGE_MS = 60000L;
     /** 一次定位请求的超时时间 */
     public static final long TIMEOUT_MS = 12000L;
+    /** 缓存足够新时直接当作「当前位置」，不必再等系统定位 */
+    public static final long FRESH_ENOUGH_MS = 5000L;
+    /** 等不到新点时，最多用这么旧的缓存兜底（会如实标注时间） */
+    public static final long FALLBACK_MAX_AGE_MS = 120000L;
 
     private State state = State.IDLE;
     private long requestAtMs = 0L;
@@ -56,6 +60,11 @@ public final class LocateTracker {
     public void fail(String reason) {
         state = State.FAILED;
         lastError = reason == null ? "定位失败" : reason;
+    }
+
+    /** 兜底缓存是否还能用（新鲜度单独判定，仅用于「等不到新点」时收尾） */
+    public static boolean usableFallback(long ageMs) {
+        return ageMs >= 0 && ageMs <= FALLBACK_MAX_AGE_MS;
     }
 
     /** 缓存是否够新：只有在 PREVIEW_MAX_AGE_MS 内才允许先画出来 */
