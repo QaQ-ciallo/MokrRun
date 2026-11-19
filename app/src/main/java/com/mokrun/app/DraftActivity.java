@@ -50,6 +50,7 @@ public class DraftActivity extends Activity {
     private BroadcastReceiver ackReceiver;
     private String pendingToken;
     private android.os.ResultReceiver confirmProbeReceiver;
+    private final LocateTracker locateTracker = new LocateTracker();
     private boolean confirmInFlight;
     private boolean allowFarConfirmed;
 
@@ -186,12 +187,26 @@ public class DraftActivity extends Activity {
         String origin = Store.draftOrigin(this);
         String route = Store.draftWaypointsJson(this);
 
-        double[] fix = LocationHelper.cachedWithAge(this);
-        double curLat = fix == null ? Double.NaN : fix[0];
-        double curLon = fix == null ? Double.NaN : fix[1];
-        double acc = fix == null ? 0 : fix[2];
-        long age = fix == null ? Long.MAX_VALUE : (long) fix[3];
+        // 确认时必须**现取**一次定位：配置/画线往往要一两分钟，缓存会超过 30 s 新鲜度，
+        // 实机就出现过「明明站着没动，确认却提示拿不到新鲜定位」。
+        final String fOrigin = origin;
+        final String fRoute = route;
+        setStatus("正在获取当前位置…");
+        LocationHelper.requestFresh(this, locateTracker, new LocationHelper.FreshCallback() {
+            @Override public void onPreview(double lat, double lon, float accuracy, long ageMs) { }
 
+            @Override public void onFresh(double lat, double lon, float accuracy) {
+                evaluateAndSend(fOrigin, fRoute, lat, lon, accuracy, 0L);
+            }
+
+            @Override public void onError(String message) {
+                setStatus("拿不到当前位置：" + message + "；可返回修改起点或重试");
+            }
+        });
+    }
+
+    private void evaluateAndSend(String origin, String route, double curLat, double curLon,
+                                 double acc, long age) {
         RouteDraft.Result r = RouteDraft.check(origin, route, curLat, curLon, acc, age,
                 allowFarConfirmed);
         if (!r.ok) {
