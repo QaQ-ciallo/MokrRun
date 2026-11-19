@@ -80,6 +80,12 @@ public final class IntentBridge {
                         + session);
                 return;
             }
+            if (MotionEngine.OP_CLEAR.equals(op)) {
+                String err = MotionEngine.clearExplicit(session);
+                XposedBridge.log(TAG + ": config via Intent (" + from + ") op=clear result="
+                        + (err == null ? "ok" : err));
+                return;
+            }
             if (MotionEngine.OP_CONFIRM.equals(op)) {
                 String err = MotionEngine.applyConfirm(session, token, cfg, origin, route);
                 XposedBridge.log(TAG + ": config via Intent (" + from + ") op=confirm result="

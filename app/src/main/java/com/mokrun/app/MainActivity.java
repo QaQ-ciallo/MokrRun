@@ -5,6 +5,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -19,6 +22,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mokrun.app.data.ConfigSync;
+import com.mokrun.app.data.EnableFlow;
 import com.mokrun.app.data.LocateTracker;
 import com.mokrun.app.data.LocationHelper;
 import com.mokrun.app.data.RouteDraft;
@@ -96,24 +100,96 @@ public class MainActivity extends Activity {
     private void enableAndOpen() {
         String session = Store.newSessionId();
         Store.setSessionId(this, session);
-        ConfigSync.setMode(this, ConfigSync.MODE_PREPARED);
-        boolean sent;
-        if (ConfigSync.isTargetRunning(this)) {
-            sent = ConfigSync.sendPrepare(this, session);
-            // 已在前台时广播只更新状态，必须再显式把体适能切到前台，
-            // 否则用户点完「启用」还停在模块首页。
-            if (sent) ConfigSync.bringTargetToFront(this);
-        } else {
-            sent = ConfigSync.launchPrepared(this, session);
-        }
-        if (!sent) {
-            Toast.makeText(this, "启用失败：无法把会话送到体适能", Toast.LENGTH_LONG).show();
+        // 注意：这里不写 runMode=3。发送成功 ≠ 目标已接受，
+        // 「已启用」必须等目标进程按 session 回执。
+        final long now = System.currentTimeMillis();
+        if (!enableFlow.begin(session, now)) {
+            Toast.makeText(this, "正在启用中，请稍候…", Toast.LENGTH_SHORT).show();
             return;
         }
-        FloatService.start(this);
-        Toast.makeText(this, "已启用 · 目标应用显示真实位置，点悬浮窗「开始」配置路线",
-                Toast.LENGTH_LONG).show();
-        refreshAll();
+        registerEnableAck();
+        boolean sent = ConfigSync.isTargetRunning(this)
+                ? ConfigSync.sendPrepare(this, session)
+                : ConfigSync.launchPrepared(this, session);
+        if (!sent) {
+            enableFlow.failSend("无法把启用请求送到体适能");
+            Toast.makeText(this, enableFlow.failure(), Toast.LENGTH_LONG).show();
+            refreshAll();
+            return;
+        }
+        Toast.makeText(this, "正在启用…", Toast.LENGTH_SHORT).show();
+        uiHandler.postDelayed(enableTimeout, EnableFlow.ACK_TIMEOUT_MS + 200L);
+    }
+
+    private final EnableFlow enableFlow = new EnableFlow();
+    private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private BroadcastReceiver enableAckReceiver;
+
+    private final Runnable enableTimeout = new Runnable() {
+        @Override public void run() {
+            if (!enableFlow.checkTimeout(System.currentTimeMillis())) return;
+            Store.setRunMode(MainActivity.this, ConfigSync.MODE_OFF);
+            Toast.makeText(MainActivity.this, enableFlow.failure(), Toast.LENGTH_LONG).show();
+            refreshAll();
+        }
+    };
+
+    private void registerEnableAck() {
+        if (enableAckReceiver != null) return;
+        enableAckReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                if (intent == null) return;
+                String op = intent.getStringExtra("op");
+                if (!"prepare".equals(op)) return;      // 确认/清除的回执不在这里处理
+                String ackSession = intent.getStringExtra("session");
+                boolean ok = intent.getBooleanExtra("ok", false);
+                if (!enableFlow.onAck(ackSession, ok, intent.getStringExtra("reason"),
+                        System.currentTimeMillis())) {
+                    return;                              // 非本次 session 的回执
+                }
+                uiHandler.removeCallbacks(enableTimeout);
+                if (!ok) {
+                    Store.setRunMode(MainActivity.this, ConfigSync.MODE_OFF);
+                    Toast.makeText(MainActivity.this, enableFlow.failure(), Toast.LENGTH_LONG).show();
+                    refreshAll();
+                    return;
+                }
+                // 目标确实进入了 PREPARED：此时才记为已启用
+                Store.setRunMode(MainActivity.this, ConfigSync.MODE_PREPARED);
+                FloatService.start(MainActivity.this);
+                boolean nav = ConfigSync.bringTargetToFront(MainActivity.this);
+                enableFlow.recordNav(nav, nav ? "" : "打开体适能失败");
+                if (nav) {
+                    Toast.makeText(MainActivity.this,
+                            "已启用 · 目标应用显示真实位置，点悬浮窗「开始」配置路线",
+                            Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(MainActivity.this,
+                            "已启用，但打开体适能失败：请手动切到体适能", Toast.LENGTH_LONG).show();
+                }
+                refreshAll();
+            }
+        };
+        try {
+            IntentFilter f = new IntentFilter(ConfigSync.ACK_ACTION);
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(enableAckReceiver, f, Context.RECEIVER_EXPORTED);
+            } else {
+                registerReceiver(enableAckReceiver, f);
+            }
+        } catch (Throwable t) {
+            android.util.Log.e("MokrRun", "register enable ack failed", t);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        uiHandler.removeCallbacks(enableTimeout);
+        if (enableAckReceiver != null) {
+            try { unregisterReceiver(enableAckReceiver); } catch (Throwable ignored) {}
+            enableAckReceiver = null;
+        }
     }
 
     /** 从历史路线建立**草稿**（不改变正在运行的位置，也不立即生效） */

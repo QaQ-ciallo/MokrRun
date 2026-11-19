@@ -113,9 +113,13 @@ public final class MotionEngine {
     private static volatile boolean sRouteConfirmed = false;
     /** 已成功应用的确认标识：用于幂等，重复确认直接忽略 */
     private static volatile String sAppliedToken = "";
+    /** 当前会话确认后的权威路线快照（只由 CONFIRM 写入，供 Provider 对照与日志） */
+    private static volatile String sConfirmedOrigin = "";
+    private static volatile String sConfirmedRoute = "";
     /** 会话操作名：两条入口（广播 / Intent）共用，避免入口层互相依赖 */
     public static final String OP_PREPARE = "prepare";
     public static final String OP_CONFIRM = "confirm";
+    public static final String OP_CLEAR = "clear";
     /** 确认回执广播（目标进程 → 模块 App），模块 App 据此判定「真的应用了」 */
     public static final String ACTION_ACK = "com.mokrun.app.ACK";
     /** provider 最近一次读到的 run 值，用于区分「App 改了状态」和「App prefs 是旧的」 */
@@ -493,8 +497,17 @@ public final class MotionEngine {
             int run = c.getInt(6);
             // 已确认的路线不允许被 prefs 里的旧路线替换：Provider 只负责参数与状态，
             // 换路线只能走确认操作（否则暂停/轮询就会把新路线换回旧的并清零进度）。
-            boolean providerClears = route == null || route.trim().length() <= 4;
-            if (!sRouteConfirmed || providerClears) applyOriginRoute(origin, route);
+            // 已确认的路线由当前会话持有权威快照：Provider 只是「持久化配置快照」，
+            // 空/旧数据都不构成撤销指令。清除只能走显式命令（op=clear）或结束会话。
+            if (sRouteConfirmed) {
+                boolean providerDiffers = route == null
+                        || !route.trim().equals(sConfirmedRoute);
+                if (providerDiffers) {
+                    XposedBridge.log(TAG + ": provider route ignored (confirmed session holds authority)");
+                }
+            } else {
+                applyOriginRoute(origin, route);
+            }
             applyConfigInner(sp, cd, st);
             sRunCheckedAt = System.currentTimeMillis();
             return Integer.valueOf(run);
@@ -536,10 +549,36 @@ public final class MotionEngine {
         // 一律忽略，否则悬浮窗命令会把已确认的路线换回 prefs 里的旧路线并清零进度。
         boolean routeClears = (waypoints == null || waypoints.trim().length() <= 4)
                 && (origin == null || origin.trim().length() == 0);
+        // 新会话尚未确认时的控制命令：暂停属于迟到/旁路命令，直接忽略，
+        // 既不确认旧路线也不改状态（结束 run=0 仍允许，用于正常收尾）。
+        if (sSessionEnabled && !sRouteConfirmed && run == MODE_PAUSED) {
+            XposedBridge.log(TAG + ": pause ignored during unconfirmed session");
+            sIntentMode = true;
+            sRunCheckedAt = System.currentTimeMillis();
+            return;
+        }
+        boolean legacyNoSession = !sSessionEnabled || sRouteConfirmed;
         boolean routeAllowed = (run == MODE_RUNNING) || routeClears;
         if (!sRouteConfirmed || routeAllowed) applyOriginRouteIfGiven(origin, waypoints);
         sSessionEnabled = true;
-        sRouteConfirmed = hasRoute();
+        // 确认状态只能由「旧协议的开始命令(run=1)」或 CONFIRM 授予；
+        // 暂停/参数更新在未确认会话里不得用 hasRoute() 隐式确认旧路线。
+        // 旧协议兼容范围：没有新会话（或已确认）时，run=2 仍按「带路线的暂停」处理。
+        if (run == MODE_RUNNING) {
+            if (hasRoute()) {
+                sRouteConfirmed = true;
+                sConfirmedOrigin = origin == null ? "" : origin.trim();
+                sConfirmedRoute = waypoints == null ? "" : waypoints.trim();
+            }
+        } else if (routeClears) {
+            sRouteConfirmed = false;
+            sConfirmedOrigin = "";
+            sConfirmedRoute = "";
+        } else if (legacyNoSession && hasRoute() && !sRouteConfirmed) {
+            sRouteConfirmed = true;
+            sConfirmedOrigin = origin == null ? "" : origin.trim();
+            sConfirmedRoute = waypoints == null ? "" : waypoints.trim();
+        }
         if (inRange(run, MODE_MIN, MODE_MAX)) {
             // 带配置的控制命令同样是显式命令：悬浮窗的「结束/暂停/继续」会带上
             // cfg/origin/route 走 CommandReceiver → 这里（不是 setMode）。
@@ -570,11 +609,16 @@ public final class MotionEngine {
      * 目标应用在此期间看到的是真实定位（shouldOverridePosition() == false）。
      */
     public static void prepareSession(String session, String cfg) {
+        // 建立预备会话就隔离上一场的冻结/超时：不能等确认时才取消，
+        // 否则预备期停留超过 3 分钟会被旧回调改掉状态。
+        cancelFaceFreeze("prepare");
         sSessionId = session == null ? "" : session;
         sSessionEnabled = true;
         // 上一场的确认不得沿用到新会话
         sRouteConfirmed = false;
         sAppliedToken = "";
+        sConfirmedOrigin = "";
+        sConfirmedRoute = "";
         if (cfg != null && cfg.length() > 4) applyCfgParams(cfg);
         sMode = MODE_PREPARED;
         sIntentMode = true;
@@ -584,6 +628,7 @@ public final class MotionEngine {
         sLastTick = 0L;
         XposedBridge.log(TAG + ": prepared session=" + sSessionId
                 + " mode=PREPARED points=" + sLat.length);
+        sendAck(sSessionId, "", true, null, OP_PREPARE);
     }
 
     /**
@@ -633,6 +678,8 @@ public final class MotionEngine {
 
         sLat = built[0];
         sLon = built[1];
+        sConfirmedOrigin = origin == null ? "" : origin.trim();
+        sConfirmedRoute = route == null ? "" : route.trim();
         sLastOrigin = origin == null ? "" : origin.trim();
         sLastRouteHash = route == null ? 0 : route.hashCode();
         sRouteConfirmed = true;
@@ -653,6 +700,27 @@ public final class MotionEngine {
         sendAck(session, token, true, null);
         XposedBridge.log(TAG + ": confirm applied session=" + session
                 + " token=" + token + " points=" + sLat.length + " mode=RUNNING");
+        return null;
+    }
+
+    /**
+     * 显式清除当前活动路线（用户主动操作）。与「Provider 快照为空」严格区分：
+     * 只有这条命令能撤销已确认路线而保留会话。
+     */
+    public static String clearExplicit(String session) {
+        if (session != null && session.length() > 0
+                && !session.equals(sSessionId)) {
+            String msg = "会话已失效（旧会话的清除命令已拒绝）";
+            XposedBridge.log(TAG + ": clear rejected (stale session " + session + ")");
+            return msg;
+        }
+        clearRoute();
+        sRouteConfirmed = false;
+        sAppliedToken = "";
+        sConfirmedOrigin = "";
+        sConfirmedRoute = "";
+        sendAck(session, "", true, null, OP_CLEAR);
+        XposedBridge.log(TAG + ": route cleared explicitly session=" + sSessionId);
         return null;
     }
 
@@ -725,6 +793,11 @@ public final class MotionEngine {
 
     /** 确认回执：模块 App 收到后才把 UI 切成「运行中」 */
     private static void sendAck(String session, String token, boolean ok, String reason) {
+        sendAck(session, token, ok, reason, OP_CONFIRM);
+    }
+
+    private static void sendAck(String session, String token, boolean ok, String reason,
+                                String kind) {
         try {
             if (sCtx == null) return;
             android.content.Intent i = new android.content.Intent(ACTION_ACK);
@@ -732,6 +805,7 @@ public final class MotionEngine {
             i.putExtra("session", session == null ? "" : session);
             i.putExtra("token", token == null ? "" : token);
             i.putExtra("ok", ok);
+            i.putExtra("op", kind == null ? OP_CONFIRM : kind);
             i.putExtra("mode", sMode);
             if (reason != null) i.putExtra("reason", reason);
             sCtx.sendBroadcast(i);

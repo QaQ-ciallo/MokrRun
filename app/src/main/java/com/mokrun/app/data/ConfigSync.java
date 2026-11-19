@@ -233,6 +233,21 @@ public final class ConfigSync {
         }
     }
 
+    /** 显式清除当前活动路线（用户主动操作；与「配置快照为空」严格区分） */
+    public static boolean sendClear(Context ctx, String session) {
+        try {
+            Intent i = new Intent(CMD_ACTION);
+            i.setPackage(TARGET_PKG);
+            i.putExtra("op", "clear");
+            i.putExtra("session", session == null ? "" : session);
+            ctx.sendBroadcast(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "sendClear failed", t);
+            return false;
+        }
+    }
+
     /** 把目标应用切到前台（不携带任何配置，不改变状态） */
     public static boolean bringTargetToFront(Context ctx) {
         Intent i = new Intent(Intent.ACTION_MAIN);

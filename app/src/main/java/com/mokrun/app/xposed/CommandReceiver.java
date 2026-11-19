@@ -88,6 +88,12 @@ public final class CommandReceiver {
                     XposedBridge.log(TAG + ": command op=prepare");
                     return;
                 }
+                if (MotionEngine.OP_CLEAR.equals(op)) {
+                    String err = MotionEngine.clearExplicit(intent.getStringExtra(EX_SESSION));
+                    XposedBridge.log(TAG + ": command op=clear result="
+                            + (err == null ? "ok" : err));
+                    return;
+                }
                 if (OP_CONFIRM.equals(op)) {
                     String err = MotionEngine.applyConfirm(
                             intent.getStringExtra(EX_SESSION),
@@ -101,6 +107,16 @@ public final class CommandReceiver {
                 }
                 int mode = intent.getIntExtra(EX_MODE, -1);
                 if (mode < 0) return;
+
+                // 旧协议兼容范围：不带 session 的 mode 命令（adb/调试/旧版本 App）。
+                // 带 session 的命令必须是当前会话，否则是迟到控制，直接拒绝。
+                String legacySession = intent.getStringExtra(EX_SESSION);
+                if (legacySession != null && legacySession.length() > 0
+                        && !legacySession.equals(MotionEngine.sessionId())) {
+                    XposedBridge.log(TAG + ": stale control rejected (session "
+                            + legacySession + " != " + MotionEngine.sessionId() + ")");
+                    return;
+                }
 
                 // 兼容旧通道：配置也可以走广播（不依赖 ContentProvider）
                 String cfg = intent.getStringExtra(EX_CFG);

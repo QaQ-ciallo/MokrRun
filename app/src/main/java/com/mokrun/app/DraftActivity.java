@@ -241,6 +241,8 @@ public class DraftActivity extends Activity {
         ackReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
                 if (intent == null) return;
+                String op = intent.getStringExtra("op");
+                if (op != null && !"confirm".equals(op)) return;   // 忽略 PREPARE/CLEAR 回执
                 String token = intent.getStringExtra("token");
                 String session = intent.getStringExtra("session");
                 boolean ok = intent.getBooleanExtra("ok", false);
