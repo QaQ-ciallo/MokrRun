@@ -1,0 +1,16 @@
+﻿=== 当前 HEAD 运行（修复前） ===
+actual_float_pause_keeps_takeover FAIL
+OBSERVED actual float pause: mode=2 confirmed=false override=false steps=3
+Exception in thread "main" java.lang.AssertionError: ordinary float pause revoked route confirmation and released real GPS
+legacy_start_cannot_confirm_new_session FAIL
+OBSERVED legacy start during PREPARED: mode=1 confirmed=true override=true
+Exception in thread "main" java.lang.AssertionError: legacy run=1 bypassed CONFIRM and activated old route in new session
+2/2 independent cases failed
+
+=== --baseline（对照 65f3478） ===
+actual_float_pause_keeps_takeover PASS
+OBSERVED actual float pause: mode=2 confirmed=true override=true steps=3
+legacy_start_cannot_confirm_new_session FAIL
+OBSERVED legacy start during PREPARED: mode=1 confirmed=true override=true
+Exception in thread "main" java.lang.AssertionError: legacy run=1 bypassed CONFIRM and activated old route in new session
+1/2 independent cases failed

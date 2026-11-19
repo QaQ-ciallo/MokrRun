@@ -505,6 +505,53 @@ public class PrepareFlowRegression {
                     "timeout not detected");
             check(g.phase() == com.mokrun.app.data.EnableFlow.Phase.FAILED, "timeout did not fail");
             check(g.failure().length() > 0, "timeout carries no message");
+        } else if (which.equals("float_pause_keeps_takeover")) {
+            // 与当前 FloatService.sendCommand 完全一致：只带 cfg + mode，没有 origin/route
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            for (int k = 0; k < 8; k++) tickAfter(250L);
+            double dist = d("sDistTotal");
+            long steps = MotionEngine.steps();
+            double lat = MotionEngine.lat();
+            double lon = MotionEngine.lon();
+            Intent pause = new Intent().putExtra("mode", Integer.valueOf(2)).putExtra("cfg", CFG);
+            new CommandReceiver.Receiver().onReceive(new Context(), pause);
+            check(readMode() == 2, "pause did not enter PAUSED: " + readMode());
+            check(MotionEngine.isRouteConfirmed(), "ordinary float pause revoked confirmation");
+            check(MotionEngine.shouldOverridePosition(), "pause released real GPS");
+            check(Math.abs(d("sDistTotal") - dist) < 1e-9, "pause reset distance");
+            check(MotionEngine.steps() == steps, "pause reset steps");
+            check(Math.abs(MotionEngine.lat() - lat) < 1e-9
+                    && Math.abs(MotionEngine.lon() - lon) < 1e-9, "paused position moved");
+            // 继续：只带 cfg + mode=1，沿用已确认路线
+            Intent resume = new Intent().putExtra("mode", Integer.valueOf(1)).putExtra("cfg", CFG);
+            new CommandReceiver.Receiver().onReceive(new Context(), resume);
+            check(readMode() == 1, "resume failed: " + readMode());
+            check(MotionEngine.isRouteConfirmed(), "resume lost confirmation");
+            tickAfter(250L);
+            check(d("sDistTotal") > dist, "resume did not advance");
+            // 结束：才交还真实定位
+            new CommandReceiver.Receiver().onReceive(new Context(),
+                    new Intent().putExtra("mode", Integer.valueOf(0)).putExtra("cfg", CFG));
+            check(readMode() == 0, "end failed: " + readMode());
+            check(!MotionEngine.shouldOverridePosition(), "end kept overriding position");
+
+        } else if (which.equals("legacy_start_cannot_confirm_new_session")) {
+            // 上场留下有效路线（旧协议、无会话）
+            MotionEngine.applyFromIntent(CFG, ORIGIN, ROUTE, 1);
+            check(MotionEngine.isRouteConfirmed(), "legacy start without session must still work");
+            MotionEngine.endSession();
+            // 新会话：只有 CONFIRM 能启动
+            MotionEngine.prepareSession("s2", CFG);
+            double lat = MotionEngine.lat();
+            Intent legacyStart = new Intent().putExtra("mode", Integer.valueOf(1))
+                    .putExtra("cfg", CFG);
+            new CommandReceiver.Receiver().onReceive(new Context(), legacyStart);
+            check(readMode() == 3, "legacy run=1 changed PREPARED mode: " + readMode());
+            check(!MotionEngine.isRouteConfirmed(), "legacy run=1 confirmed new session");
+            check(!MotionEngine.shouldOverridePosition(), "legacy run=1 took over position");
+            tickAfter(250L);
+            check(Math.abs(MotionEngine.lat() - lat) < 1e-9, "legacy run=1 moved the position");
         } else {
             throw new IllegalArgumentException(which);
         }
@@ -558,6 +605,8 @@ CASES = [
     "legacy_pause_cannot_confirm_route",
     "prepare_ack_matches_session",
     "enable_flow_three_outcomes",
+    "float_pause_keeps_takeover",
+    "legacy_start_cannot_confirm_new_session",
     # 定位按钮的请求状态机
 
 ]
