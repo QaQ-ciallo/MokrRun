@@ -115,6 +115,48 @@ public final class MotionEngine {
     private static volatile String sAppliedToken = "";
     /** 当前会话确认后的权威路线快照（只由 CONFIRM 写入，供 Provider 对照与日志） */
     private static volatile String sConfirmedOrigin = "";
+    /** 模块传入的 ResultReceiver（binder 回调）：最小验证用，sCtx 不可达时的第二条回执通道 */
+    private static volatile Object sAckReceiver = null;
+
+    public static void setAckReceiver(Object rr) {
+        sAckReceiver = rr;
+        if (rr != null) {
+            XposedBridge.log(TAG + ": ack receiver registered " + rr.getClass().getName());
+        }
+    }
+
+    private static void fireResultReceiver(String op, String session, String token, boolean ok,
+                                           String reason) {
+        Object rr = sAckReceiver;
+        if (rr == null) return;
+        try {
+            android.os.Bundle b = new android.os.Bundle();
+            b.putString("op", op == null ? OP_CONFIRM : op);
+            b.putString("session", session == null ? "" : session);
+            b.putString("token", token == null ? "" : token);
+            b.putBoolean("ok", ok);
+            b.putInt("mode", sMode);
+            b.putLong("at", System.currentTimeMillis());
+            if (reason != null) b.putString("reason", reason);
+            Class<?> c = rr.getClass();
+            java.lang.reflect.Method m = null;
+            // ResultReceiver.send(int, Bundle) 在子类里可能不是 public，逐个向上找
+            while (c != null && m == null) {
+                try {
+                    m = c.getDeclaredMethod("send", int.class, android.os.Bundle.class);
+                    m.setAccessible(true);
+                } catch (NoSuchMethodException ignored) {
+                    c = c.getSuperclass();
+                }
+            }
+            if (m != null) {
+                m.invoke(rr, Integer.valueOf(0), b);
+                XposedBridge.log(TAG + ": ack via ResultReceiver op=" + op);
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": ResultReceiver callback failed " + t);
+        }
+    }
     private static volatile String sConfirmedRoute = "";
     /** 会话操作名：两条入口（广播 / Intent）共用，避免入口层互相依赖 */
     public static final String OP_PREPARE = "prepare";
@@ -832,6 +874,7 @@ public final class MotionEngine {
             return;
         }
         final String k = kind == null ? OP_CONFIRM : kind;
+        fireResultReceiver(k, session, token, ok, reason);
         final android.content.Intent intent = new android.content.Intent(ACTION_ACK);
         intent.setPackage("com.mokrun.app");
         intent.setClassName("com.mokrun.app", "com.mokrun.app.AckReceiver");

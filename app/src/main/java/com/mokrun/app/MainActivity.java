@@ -112,9 +112,25 @@ public class MainActivity extends Activity {
         // ContentProvider（No provider info ... providerRunning is false）并把广播排队，
         // 回执就送不回来。进程保活是回执可达的前提。
         FloatService.start(this);
+        ackProbeReceiver = new android.os.ResultReceiver(
+                new android.os.Handler(android.os.Looper.getMainLooper())) {
+            @Override protected void onReceiveResult(int resultCode, android.os.Bundle resultData) {
+                if (resultData == null) return;
+                android.util.Log.i("MokrRunAckProbe", "result op="
+                        + resultData.getString("op") + " session="
+                        + resultData.getString("session") + " ok="
+                        + resultData.getBoolean("ok", false) + " mode="
+                        + resultData.getInt("mode", -1));
+                handleEnableAck(new Intent(ConfigSync.ACK_ACTION)
+                        .putExtra("op", resultData.getString("op"))
+                        .putExtra("session", resultData.getString("session"))
+                        .putExtra("ok", resultData.getBoolean("ok", false))
+                        .putExtra("reason", resultData.getString("reason")));
+            }
+        };
         boolean sent = ConfigSync.isTargetRunning(this)
                 ? ConfigSync.sendPrepare(this, session)
-                : ConfigSync.launchPrepared(this, session);
+                : ConfigSync.launchPrepared(this, session, ackProbeReceiver);
         if (!sent) {
             enableFlow.failSend("无法把启用请求送到体适能");
             Toast.makeText(this, enableFlow.failure(), Toast.LENGTH_LONG).show();
@@ -126,6 +142,7 @@ public class MainActivity extends Activity {
     }
 
     private final EnableFlow enableFlow = new EnableFlow();
+    private android.os.ResultReceiver ackProbeReceiver;
     private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private BroadcastReceiver enableAckReceiver;
 

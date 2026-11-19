@@ -74,6 +74,17 @@ public final class IntentBridge {
             String route = it.getStringExtra(EX_ROUTE);
             int run = it.getIntExtra(EX_RUN, 0);
 
+            // 模块把 ResultReceiver 句柄放在 extras 里：拿到后引擎在状态切换完成时直接回调
+            try {
+                // extras 里是模块 APK 里的类（ResultReceiver 子类）：目标进程默认用体适能的
+                // classloader 反序列化会抛 BadParcelableException，必须换成模块的 classloader
+                it.setExtrasClassLoader(MotionEngine.class.getClassLoader());
+                android.os.Parcelable rr = it.getParcelableExtra("mokr_rr");
+                if (rr != null) MotionEngine.setAckReceiver(rr);
+            } catch (Throwable t) {
+                XposedBridge.log(TAG + ": read result receiver failed " + t);
+            }
+
             if (MotionEngine.OP_PREPARE.equals(op)) {
                 MotionEngine.prepareSession(session, cfg);
                 XposedBridge.log(TAG + ": config via Intent (" + from + ") op=prepare session="

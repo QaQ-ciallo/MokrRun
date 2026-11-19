@@ -168,6 +168,16 @@ public final class ConfigSync {
         }
     }
 
+    /** 建立预备会话并携带 ResultReceiver（binder 回调，最小验证用） */
+    public static boolean launchPrepared(Context ctx, String session, android.os.Parcelable rr) {
+        Intent i = baseTargetIntent(ctx);
+        i.putExtra("mokr_op", OP_PREPARE);
+        i.putExtra("mokr_session", session == null ? "" : session);
+        i.putExtra("mokr_cfg", buildLine(ctx));
+        if (rr != null) i.putExtra("mokr_rr", rr);
+        return startTarget(ctx, i);
+    }
+
     /** 建立预备会话：目标进程没打开时拉起（配置随启动 Intent 送达） */
     public static boolean launchPrepared(Context ctx, String session) {
         Intent i = baseTargetIntent(ctx);
