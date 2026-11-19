@@ -270,6 +270,11 @@ public class MainActivity extends Activity {
             curLon = cache[1];
         }
         pushMapData(oLat, oLon, wpsJs, curLat, curLon, center);
+        // 没有任何可用位置时（首次进入、缓存过期），主动定位一次，
+        // 否则地图会停在 Leaflet 默认坐标（天安门），看起来像「定位到北京」。
+        if (curLat == 0.0 && curLon == 0.0 && center && o == null) {
+            doLocate();
+        }
     }
 
     private void pushMapData(final double oLat, final double oLon, final String wpsJs,

@@ -177,6 +177,14 @@ public final class LocationHelper {
      */
     public static void requestFresh(final Context ctx, final LocateTracker tracker,
                                     final FreshCallback cb) {
+        requestFresh(ctx, tracker, cb, false);
+    }
+
+    /** 需要「足够准」的点时使用（选起点）：先等精度达标的点，超时才接受较粗的或缓存 */
+    public static final float PRECISE_ACCURACY_M = 20f;
+
+    public static void requestFresh(final Context ctx, final LocateTracker tracker,
+                                    final FreshCallback cb, final boolean preferPrecise) {
         if (tracker == null || cb == null) return;
         if (!hasPermission(ctx)) {
             tracker.fail("未授予定位权限");
@@ -190,11 +198,12 @@ public final class LocationHelper {
         }
         if (!tracker.begin(System.currentTimeMillis())) return;   // 重复点击
 
-        final long startedAt = System.currentTimeMillis();
         final double[] cache = cachedWithAge(ctx);
-        // 已经足够新的缓存就是「当前位置」，不必再等
-        if (cache != null && (long) cache[3] <= LocateTracker.FRESH_ENOUGH_MS) {
+        if (cache != null && (long) cache[3] <= LocateTracker.FRESH_ENOUGH_MS
+                && (!preferPrecise || cache[2] <= PRECISE_ACCURACY_M)) {
             tracker.succeed();
+            android.util.Log.i("MokrRunLoc", "cache accepted acc=" + cache[2]
+                    + " age=" + (long) cache[3]);
             cb.onFresh(cache[0], cache[1], (float) cache[2]);
             return;
         }
@@ -217,19 +226,25 @@ public final class LocationHelper {
             return;
         }
 
-        // 两个 provider 同时等，谁先给可用点就用谁（室内 GPS 常常几十秒才定位，
-        // 只等 GPS 会直接超时——这是实机验收里发现的真实问题）
+        // 精度不够时先记最好的一条，超时后用它兜底
+        final Location[] best = new Location[1];
+
         final LocationListener listener = new LocationListener() {
             @Override public void onLocationChanged(Location l) {
                 if (l == null || !tracker.isRequesting()) return;
+                if (preferPrecise && l.getAccuracy() > PRECISE_ACCURACY_M) {
+                    if (best[0] == null || l.getAccuracy() < best[0].getAccuracy()) {
+                        best[0] = new Location(l);
+                    }
+                    return;
+                }
                 h.removeCallbacksAndMessages(null);
                 try { lm.removeUpdates(this); } catch (Throwable ignored) {}
                 double[] g = wgs2gcj(l.getLatitude(), l.getLongitude());
                 tracker.succeed();
                 android.util.Log.i("MokrRunLoc", "fresh " + l.getProvider()
                         + " wgs=" + l.getLatitude() + "," + l.getLongitude()
-                        + " gcj=" + g[0] + "," + g[1]
-                        + " age=" + (System.currentTimeMillis() - l.getTime()) + "ms");
+                        + " gcj=" + g[0] + "," + g[1] + " acc=" + l.getAccuracy());
                 cb.onFresh(g[0], g[1], l.getAccuracy());
             }
             @Override public void onStatusChanged(String p, int s, Bundle b) {}
@@ -241,11 +256,19 @@ public final class LocationHelper {
             @Override public void run() {
                 if (!tracker.isRequesting()) return;
                 try { lm.removeUpdates(listener); } catch (Throwable ignored) {}
+                if (best[0] != null) {
+                    double[] g = wgs2gcj(best[0].getLatitude(), best[0].getLongitude());
+                    tracker.succeed();
+                    android.util.Log.i("MokrRunLoc", "coarse fallback acc="
+                            + best[0].getAccuracy());
+                    cb.onFresh(g[0], g[1], best[0].getAccuracy());
+                    return;
+                }
                 double[] late = cachedWithAge(ctx);
                 if (late != null && LocateTracker.usableFallback((long) late[3])) {
                     tracker.succeed();
-                    long ageSec = Math.max(0L, (long) late[3] / 1000);
-                    android.util.Log.i("MokrRunLoc", "fallback cached age=" + ageSec + "s");
+                    android.util.Log.i("MokrRunLoc", "cached fallback age="
+                            + ((long) late[3] / 1000) + "s");
                     cb.onFresh(late[0], late[1], (float) late[2]);
                     return;
                 }
