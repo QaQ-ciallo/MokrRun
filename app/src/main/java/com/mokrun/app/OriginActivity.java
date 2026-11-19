@@ -15,6 +15,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mokrun.app.data.ConfigSync;
+import com.mokrun.app.data.LocateTracker;
 import com.mokrun.app.data.LocationHelper;
 import com.mokrun.app.data.Store;
 
@@ -25,6 +26,10 @@ import java.util.Locale;
  * 体适能进程读到的位置就冻结在这个点（mokr_run=2）。
  */
 public class OriginActivity extends Activity {
+
+    private final LocateTracker locateTracker = new LocateTracker();
+
+    public static final String EXTRA_DRAFT = "draft";
 
     private WebView web;
     private TextView coordText;
@@ -114,17 +119,42 @@ public class OriginActivity extends Activity {
             return;
         }
         Toast.makeText(this, "正在获取位置…", Toast.LENGTH_SHORT).show();
-        LocationHelper.requestOnce(this, new LocationHelper.Callback() {
-            @Override public void onLocation(double lat, double lon) {
+        // 选起点必须用「现取 + 优先精确」：requestOnce 是缓存优先，
+        // 实机上会把几十秒前的网络点当成当前位置，看起来偏到马路对面。
+        final LocateTracker tracker = locateTracker;
+        LocationHelper.requestFresh(this, tracker, new LocationHelper.FreshCallback() {
+            @Override public void onPreview(double lat, double lon, float accuracy, long ageMs) {
                 moveTo(lat, lon);
-                Toast.makeText(OriginActivity.this, "已定位到当前位置", Toast.LENGTH_SHORT).show();
             }
-        });
+
+            @Override public void onFresh(double lat, double lon, float accuracy,
+                                         long ageMs, boolean fromCache) {
+                moveTo(lat, lon);
+                showCoord(lat, lon);
+                String msg = fromCache
+                        ? "使用的是 " + Math.max(0L, ageMs / 1000) + " 秒前的定位（精度约 "
+                                + Math.round(accuracy) + " m），可稍后重试或拖动准星微调"
+                        : "已定位到当前位置（精度约 " + Math.round(accuracy) + " m）";
+                Toast.makeText(OriginActivity.this, msg, Toast.LENGTH_LONG).show();
+            }
+
+            @Override public void onError(String message) {
+                Toast.makeText(OriginActivity.this, message, Toast.LENGTH_LONG).show();
+            }
+        }, true);
     }
 
     private void confirm() {
         if (curLat == 0 && curLon == 0) {
             Toast.makeText(this, "请先在地图上选一个点", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (getIntent().getBooleanExtra(EXTRA_DRAFT, false)) {
+            // 草稿模式：只写草稿，不改变目标应用的位置，也不下发
+            Store.setDraftOrigin(this, curLat + "," + curLon);
+            Toast.makeText(this, "起点已写入草稿（未生效）", Toast.LENGTH_SHORT).show();
+            setResult(RESULT_OK);
+            finish();
             return;
         }
         Store.setOrigin(this, curLat, curLon);

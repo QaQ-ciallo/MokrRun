@@ -4,6 +4,7 @@ import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.os.Bundle;
 import android.database.MatrixCursor;
 import android.net.Uri;
 import android.util.Log;
@@ -26,6 +27,24 @@ public class ConfigProvider extends ContentProvider {
     public boolean onCreate() {
         Log.i(TAG, "provider onCreate");
         return true;
+    }
+
+    /**
+     * 目标进程 → 模块 App 的回执直连通道。
+     *
+     * 注意：实机 1.0.135–1.0.141 复现「目标进程 → 本 Provider」的 call() 在 MIUI 上不可用
+     * （前台/后台都一样，原因未完全定位），所以回执主通道已改为 ResultReceiver；
+     * 这里保留 call() 仅作诊断入口，不参与关键流程。
+     */
+    @Override
+    public Bundle call(String method, String arg, Bundle extras) {
+        if ("ack".equals(method)) {
+            com.mokrun.app.AckReceiver.deliver(extras);
+            Bundle r = new Bundle();
+            r.putBoolean("received", true);
+            return r;
+        }
+        return null;
     }
 
     @Override

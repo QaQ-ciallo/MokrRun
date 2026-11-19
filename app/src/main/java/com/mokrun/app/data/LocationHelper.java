@@ -127,6 +127,229 @@ public final class LocationHelper {
         }
     }
 
+    /** 带年龄的缓存：{lat, lon, accuracy, ageMs}；不可用返回 null */
+    public static double[] cachedWithAge(Context ctx) {
+        if (!hasPermission(ctx)) return null;
+        try {
+            LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) return null;
+            Location best = null;
+            String[] providers = {LocationManager.GPS_PROVIDER,
+                    LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER};
+            long now = System.currentTimeMillis();
+            for (int i = 0; i < providers.length; i++) {
+                Location l = lm.getLastKnownLocation(providers[i]);
+                if (l == null) continue;
+                if (best == null || l.getTime() > best.getTime()) best = l;
+            }
+            if (best == null) return null;
+            double[] gcj = wgs2gcj(best.getLatitude(), best.getLongitude());
+            long age = Math.max(0L, now - best.getTime());
+            return new double[]{gcj[0], gcj[1], best.getAccuracy(), age};
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** 定位开关是否可用 */
+    public static boolean locationEnabled(Context ctx) {
+        try {
+            LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+            if (lm == null) return false;
+            return lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** 新鲜定位请求的回调：预览、成功、失败三态互斥，一定有结束状态 */
+    public interface FreshCallback {
+        /** 只有预览意义的缓存（可能为空），不能据此宣布定位完成 */
+        void onPreview(double lat, double lon, float accuracy, long ageMs);
+
+        /**
+         * @param ageMs     这个点离现在多久（毫秒）：新点≈0，缓存兜底会是真实年龄
+         * @param fromCache 是否来自缓存兜底（调用方必须按真实年龄校验，不能当新点）
+         */
+        void onFresh(double lat, double lon, float accuracy, long ageMs, boolean fromCache);
+
+        void onError(String message);
+    }
+
+    // ---- 请求生命周期 ------------------------------------------------------
+    // 取消/代际：取消、页面销毁或新请求开始时，旧回调必须失效
+    private static volatile int sGen = 0;
+    private static volatile LocationManager sActiveLm;
+    private static volatile LocationListener sActiveListener;
+
+    /** 撤销当前定位请求：迟到回调会被代际检查拒绝 */
+    public static void cancelFresh(String reason) {
+        sGen++;
+        LocationManager lm = sActiveLm;
+        LocationListener l = sActiveListener;
+        sActiveLm = null;
+        sActiveListener = null;
+        if (lm != null && l != null) {
+            try { lm.removeUpdates(l); } catch (Throwable ignored) {
+            }
+        }
+        android.util.Log.i("MokrRunLoc", "fresh request cancelled (" + reason + ")");
+    }
+
+    /**
+     * 请求一次**新鲜**定位（「定位当前位置」按钮专用）。
+     * 请求进行中重复点击会被 LocateTracker 忽略；必定以 onFresh 或 onError 结束。
+     */
+    public static void requestFresh(final Context ctx, final LocateTracker tracker,
+                                    final FreshCallback cb) {
+        requestFresh(ctx, tracker, cb, false);
+    }
+
+    /** 需要「足够准」的点时使用（选起点）：先等精度达标的点，超时才接受较粗的或缓存 */
+    public static final float PRECISE_ACCURACY_M = 20f;
+
+    public static void requestFresh(final Context ctx, final LocateTracker tracker,
+                                    final FreshCallback cb, final boolean preferPrecise) {
+        if (tracker == null || cb == null) return;
+        if (!hasPermission(ctx)) {
+            tracker.fail("未授予定位权限");
+            cb.onError("未授予定位权限：请允许定位后再试");
+            return;
+        }
+        if (!locationEnabled(ctx)) {
+            tracker.fail("系统定位已关闭");
+            cb.onError("系统定位已关闭：请打开定位开关后再试");
+            return;
+        }
+        if (!tracker.begin(System.currentTimeMillis())) return;   // 重复点击
+
+        final int gen = ++sGen;
+        final double[] cache = cachedWithAge(ctx);
+        if (cache != null && (long) cache[3] <= LocateTracker.FRESH_ENOUGH_MS
+                && (!preferPrecise || cache[2] <= PRECISE_ACCURACY_M)) {
+            tracker.succeed();
+            android.util.Log.i("MokrRunLoc", "cache accepted acc=" + cache[2]
+                    + " age=" + (long) cache[3]);
+            cb.onFresh(cache[0], cache[1], (float) cache[2], (long) cache[3], true);
+            return;
+        }
+        if (cache != null && LocateTracker.cacheUsable((long) cache[3])) {
+            cb.onPreview(cache[0], cache[1], (float) cache[2], (long) cache[3]);
+        }
+
+        final android.os.Handler h = new android.os.Handler(Looper.getMainLooper());
+        final LocationManager lm;
+        try {
+            lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
+        } catch (Throwable t) {
+            tracker.fail("定位服务不可用");
+            cb.onError("定位服务不可用");
+            return;
+        }
+        if (lm == null) {
+            tracker.fail("定位服务不可用");
+            cb.onError("定位服务不可用");
+            return;
+        }
+
+        // 精度不够时先记最好的一条，超时后用它兜底
+        final Location[] best = new Location[1];
+
+        final LocationListener listener = new LocationListener() {
+            @Override public void onLocationChanged(Location l) {
+                if (l == null || !tracker.isRequesting()) return;
+                if (gen != sGen) {
+                    android.util.Log.i("MokrRunLoc", "stale callback dropped (gen " + gen
+                            + " != " + sGen + ")");
+                    return;
+                }
+                if (preferPrecise && l.getAccuracy() > PRECISE_ACCURACY_M) {
+                    if (best[0] == null || l.getAccuracy() < best[0].getAccuracy()) {
+                        best[0] = new Location(l);
+                    }
+                    return;
+                }
+                h.removeCallbacksAndMessages(null);
+                try { lm.removeUpdates(this); } catch (Throwable ignored) {}
+                sActiveLm = null;
+                sActiveListener = null;
+                double[] g = wgs2gcj(l.getLatitude(), l.getLongitude());
+                long age = Math.max(0L, System.currentTimeMillis() - l.getTime());
+                tracker.succeed();
+                android.util.Log.i("MokrRunLoc", "fresh " + l.getProvider()
+                        + " wgs=" + l.getLatitude() + "," + l.getLongitude()
+                        + " gcj=" + g[0] + "," + g[1] + " acc=" + l.getAccuracy()
+                        + " age=" + age);
+                cb.onFresh(g[0], g[1], l.getAccuracy(), age, false);
+            }
+            @Override public void onStatusChanged(String p, int s, Bundle b) {}
+            @Override public void onProviderEnabled(String p) {}
+            @Override public void onProviderDisabled(String p) {}
+        };
+
+        final Runnable giveUp = new Runnable() {
+            @Override public void run() {
+                if (!tracker.isRequesting()) return;
+                if (gen != sGen) {
+                    android.util.Log.i("MokrRunLoc", "stale timeout dropped (gen " + gen
+                            + " != " + sGen + ")");
+                    return;
+                }
+                try { lm.removeUpdates(listener); } catch (Throwable ignored) {}
+                sActiveLm = null;
+                sActiveListener = null;
+                if (best[0] != null) {
+                    double[] g = wgs2gcj(best[0].getLatitude(), best[0].getLongitude());
+                    long age = Math.max(0L, System.currentTimeMillis() - best[0].getTime());
+                    tracker.succeed();
+                    android.util.Log.i("MokrRunLoc", "coarse fallback acc="
+                            + best[0].getAccuracy() + " age=" + age);
+                    cb.onFresh(g[0], g[1], best[0].getAccuracy(), age, false);
+                    return;
+                }
+                double[] late = cachedWithAge(ctx);
+                if (late != null && LocateTracker.usableFallback((long) late[3])) {
+                    tracker.succeed();
+                    android.util.Log.i("MokrRunLoc", "cached fallback age="
+                            + ((long) late[3] / 1000) + "s");
+                    // 真实年龄照实回传：调用方必须按 age 校验，不能当成刚取到的点
+                    cb.onFresh(late[0], late[1], (float) late[2], (long) late[3], true);
+                    return;
+                }
+                tracker.fail("定位超时");
+                cb.onError("定位超时：没有在 " + (LocateTracker.TIMEOUT_MS / 1000)
+                        + " s 内拿到结果，请到开阔处重试");
+            }
+        };
+        h.postDelayed(giveUp, LocateTracker.TIMEOUT_MS);
+
+        try {
+            boolean any = false;
+            sActiveLm = lm;
+            sActiveListener = listener;
+            if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f,
+                        listener, Looper.getMainLooper());
+                any = true;
+            }
+            if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0L, 0f,
+                        listener, Looper.getMainLooper());
+                any = true;
+            }
+            if (!any) {
+                h.removeCallbacks(giveUp);
+                tracker.fail("没有可用的定位提供者");
+                cb.onError("没有可用的定位提供者：请检查定位设置");
+            }
+        } catch (Throwable t) {
+            h.removeCallbacks(giveUp);
+            tracker.fail("定位请求异常");
+            cb.onError("定位请求异常：" + t);
+        }
+    }
+
     /** 缓存优先；没有就请求一次，回调在主线程，坐标已转 GCJ-02 */
     public static void requestOnce(final Context ctx, final Callback cb) {
         double[] c = cached(ctx);

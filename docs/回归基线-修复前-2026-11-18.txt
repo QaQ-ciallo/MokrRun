@@ -1,0 +1,397 @@
+=== cadence_infinity_sanitized (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=Infinity stride=Infinity sat=14 mode=1 points=3
+Exception in thread "main" java.lang.AssertionError: cadence accepted a non-finite value
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:110)
+
+=== tick_survives_infinite_cadence (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=Infinity stride=1.1 sat=14 mode=1 points=3
+Exception in thread "main" java.lang.AssertionError: cadence must be sanitized before ticking
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:120)
+
+=== nonfinite_and_negative_config_rejected (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+Exception in thread "main" java.lang.AssertionError: spdmax became Infinity
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:141)
+
+=== tick_bounded_at_max_cadence (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=10000.0 stride=1.1 sat=14 mode=1 points=3
+Exception in thread "main" java.lang.AssertionError: cadence not clamped: 10000.0
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:148)
+
+=== tick_huge_clock_gap_bounded (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.000011,120.000000 seg=0/2
+PASS tick_huge_clock_gap_bounded
+
+=== freeze_timeout_restores_running (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze timeout -> resuming
+LOG MokrRun: mode set to 1 (via command)
+LOG MokrRun: face check done -> resume mode=1
+PASS freeze_timeout_restores_running
+
+=== freeze_timeout_from_idle_keeps_idle (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: face freeze timeout -> resuming
+LOG MokrRun: mode set to 1 (via command)
+LOG MokrRun: face check done -> resume mode=1
+Exception in thread "main" java.lang.AssertionError: idle process resumed as mode=1
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:176)
+
+=== stop_command_cancels_freeze (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: mode set to 0 (via command)
+Exception in thread "main" java.lang.AssertionError: stop left the freeze timeout scheduled
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:183)
+
+=== pause_command_cancels_freeze (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face freeze timeout -> resuming
+LOG MokrRun: mode set to 1 (via command)
+LOG MokrRun: face check done -> resume mode=1
+Exception in thread "main" java.lang.AssertionError: explicit pause was overwritten: mode=1
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:195)
+
+=== provider_poll_keeps_freeze (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: mode set to 2 (via command)
+LOG MokrRun: face check detected -> motion frozen (mode=2)
+Exception in thread "main" java.lang.AssertionError: provider poll released the freeze: mode=1
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:202)
+
+=== provider_poll_keeps_explicit_pause (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: mode set to 2 (via command)
+Exception in thread "main" java.lang.AssertionError: provider overwrote explicit PAUSE: mode=1
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:210)
+
+=== provider_change_still_followed (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+PASS provider_change_still_followed
+
+=== route_end_reverses_without_teleport (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.000000,120.000000 seg=0/2
+Exception in thread "main" java.lang.AssertionError: one tick moved 146.96589059699235m at the route end
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:235)
+
+=== route_end_repeat_no_jump (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=1.2m steps=0 pos=30.000000,120.000000 seg=0/2
+LOG MokrRun: tick dist=25.2m steps=16 pos=30.000216,120.000000 seg=0/2
+LOG MokrRun: tick dist=49.2m steps=31 pos=30.000432,120.000000 seg=0/2
+LOG MokrRun: tick dist=73.2m steps=47 pos=30.000648,120.000000 seg=0/2
+Exception in thread "main" java.lang.AssertionError: per-tick displacement spiked to 146.76990298539224m
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:258)
+
+=== clear_route_clears_points (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: origin/route cleared
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+Exception in thread "main" java.lang.AssertionError: cleared route still has a route
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:263)
+
+=== origin_only_does_not_advance (exit 1) ===
+LOG MokrRun: route applied, 1 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=1
+LOG MokrRun: tick dist=4.8m steps=3 pos=30.000000,120.000000 seg=0/0
+Exception in thread "main" java.lang.AssertionError: origin-only route produced 3 steps
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:272)
+
+=== no_route_rejects_run (exit 1) ===
+LOG MokrRun: origin/route cleared
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=1
+LOG MokrRun: tick dist=4.8m steps=3 pos=39.908700,116.397500 seg=0/0
+Exception in thread "main" java.lang.AssertionError: engine claims to run without a route
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:280)
+
+=== route_switch_resets_progress (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=4.8m steps=3 pos=30.000043,120.000000 seg=0/2
+LOG MokrRun: route applied, 2 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=2
+PASS route_switch_resets_progress
+
+=== same_route_keeps_progress (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: tick dist=4.8m steps=3 pos=30.000043,120.000000 seg=0/2
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+PASS same_route_keeps_progress
+
+=== paused_speed_reports_zero (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=2 points=3
+Exception in thread "main" java.lang.AssertionError: paused Location speed=4.8
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:308)
+
+=== sensor_partial_unregister_keeps_step_types (exit 1) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener - total=0
+Exception in thread "main" java.lang.AssertionError: unregistering accelerometer removed the step listener; received=1
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:323)
+
+=== sensor_dedup_two_step_types (exit 0) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step register suppressed (rs=1) type=18
+PASS sensor_dedup_two_step_types
+
+=== sensor_listener_exception_isolated (exit 1) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener + type=19 total=2
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: pushStep failed java.lang.IllegalStateException: fixture listener
+Exception in thread "main" java.lang.AssertionError: one throwing listener prevented the healthy one; received=0
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:356)
+
+=== sensor_unregister_all_stops_events (exit 0) ===
+LOG MokrRun: step listener + type=19 total=1
+LOG MokrRun: step register suppressed (rs=1) type=19
+LOG MokrRun: motion engine started, tick=250ms
+LOG MokrRun: step listener - total=0
+PASS sensor_unregister_all_stops_events
+
+=== location_remove_updates_stops_delivery (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.EngineRegression$LocListener
+Exception in thread "main" java.lang.AssertionError: No hook registered: android.location.LocationManager.removeUpdates
+	at de.robv.android.xposed.XposedBridge.invoke(XposedBridge.java:65)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:375)
+
+=== location_single_shot_delivered_once (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestSingleUpdate captured
+Exception in thread "main" java.lang.AssertionError: single-shot listener received 2 updates
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:390)
+
+=== location_listener_exception_isolated (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: motion engine started, tick=250ms
+HOOK android.location.LocationManager.getLastKnownLocation [1]
+LOG MokrRun: hooked getLastKnownLocation
+HOOK android.location.LocationManager.getCurrentLocation [4]
+LOG MokrRun: hooked getCurrentLocation
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates 4
+HOOK android.location.LocationManager.requestLocationUpdates [5]
+LOG MokrRun: hooked requestLocationUpdates 5
+HOOK android.location.LocationManager.requestSingleUpdate [3]
+LOG MokrRun: hooked requestSingleUpdate #1
+HOOK android.location.LocationManager.requestSingleUpdate [2]
+LOG MokrRun: hooked requestSingleUpdate #2
+HOOK android.location.LocationManager.requestLocationUpdates [4]
+LOG MokrRun: hooked requestLocationUpdates(PendingIntent)
+HOOK android.location.LocationManager.getLastLocation [all]
+LOG MokrRun: hooked getLastLocation (fused client)
+LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.EngineRegression$LocListener
+LOG MokrRun: requestLocationUpdates captured com.mokrun.app.xposed.EngineRegression$LocListener
+LOG MokrRun: emit failed java.lang.IllegalStateException: fixture location listener
+PASS location_listener_exception_isolated
+
+=== related_dialog_dismiss_resumes (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Dialog.show [0]
+LOG MokrRunProbe: hooked Dialog.show
+HOOK android.app.Dialog.dismiss [0]
+LOG MokrRunProbe: androidx.appcompat.app.AlertDialog$Builder.setMessage skipped
+LOG MokrRunProbe: com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage skipped
+HOOK android.widget.PopupWindow.showAtLocation [4]
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+HOOK android.widget.PopupWindow.showAsDropDown [1]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.showAsDropDown [3]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.Toast.makeText [3]
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+Exception in thread "main" java.lang.AssertionError: ResourceProbe.handleText seam missing: face detection is not bound to a dialog owner
+	at com.mokrun.app.xposed.EngineRegression.reportText(EngineRegression.java:518)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:408)
+
+=== unrelated_dialog_dismiss_keeps_freeze (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Dialog.show [0]
+LOG MokrRunProbe: hooked Dialog.show
+HOOK android.app.Dialog.dismiss [0]
+LOG MokrRunProbe: androidx.appcompat.app.AlertDialog$Builder.setMessage skipped
+LOG MokrRunProbe: com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage skipped
+HOOK android.widget.PopupWindow.showAtLocation [4]
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+HOOK android.widget.PopupWindow.showAsDropDown [1]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.showAsDropDown [3]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.Toast.makeText [3]
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+Exception in thread "main" java.lang.AssertionError: ResourceProbe.handleText seam missing: face detection is not bound to a dialog owner
+	at com.mokrun.app.xposed.EngineRegression.reportText(EngineRegression.java:518)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:418)
+
+=== dialog_dismiss_without_freeze_noop (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Dialog.show [0]
+LOG MokrRunProbe: hooked Dialog.show
+HOOK android.app.Dialog.dismiss [0]
+LOG MokrRunProbe: androidx.appcompat.app.AlertDialog$Builder.setMessage skipped
+LOG MokrRunProbe: com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage skipped
+HOOK android.widget.PopupWindow.showAtLocation [4]
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+HOOK android.widget.PopupWindow.showAsDropDown [1]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.showAsDropDown [3]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.Toast.makeText [3]
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+PASS dialog_dismiss_without_freeze_noop
+
+=== face_text_exclusion_still_applies (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+HOOK android.app.Dialog.show [0]
+LOG MokrRunProbe: hooked Dialog.show
+HOOK android.app.Dialog.dismiss [0]
+LOG MokrRunProbe: androidx.appcompat.app.AlertDialog$Builder.setMessage skipped
+LOG MokrRunProbe: com.google.android.material.dialog.MaterialAlertDialogBuilder.setMessage skipped
+HOOK android.widget.PopupWindow.showAtLocation [4]
+LOG MokrRunProbe: hooked PopupWindow.showAtLocation
+HOOK android.widget.PopupWindow.showAsDropDown [1]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.PopupWindow.showAsDropDown [3]
+LOG MokrRunProbe: hooked PopupWindow.showAsDropDown
+HOOK android.widget.Toast.makeText [3]
+LOG MokrRunProbe: hooked Toast.makeText
+LOG MokrRunProbe: popup/dialog probe installed
+Exception in thread "main" java.lang.AssertionError: ResourceProbe.handleText seam missing: face detection is not bound to a dialog owner
+	at com.mokrun.app.xposed.EngineRegression.reportText(EngineRegression.java:518)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:434)
+
+=== log_throttle_keeps_detection (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=1 points=3
+Exception in thread "main" java.lang.AssertionError: a log within the throttle window skipped face detection
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:445)
+
+=== new_intent_applies_callback_intent (exit 1) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+HOOK android.app.Activity.onCreate [all]
+HOOK android.app.Activity.onNewIntent [all]
+LOG MokrRun: intent bridge installed
+Exception in thread "main" java.lang.AssertionError: new intent did not start the engine: mode=0
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:458)
+
+=== on_create_reads_activity_intent (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+HOOK android.app.Activity.onCreate [all]
+HOOK android.app.Activity.onNewIntent [all]
+LOG MokrRun: intent bridge installed
+LOG MokrRun: applied from intent speed=3.5 cadence=2.6 stride=1.1 sat=14 mode=1 points=3
+LOG MokrRun: config via Intent (onCreate) speed=3.5;cadence=2.6 run=1 routeLen=57
+PASS on_create_reads_activity_intent
+
+=== new_intent_without_extras_ignored (exit 0) ===
+LOG MokrRun: route applied, 3 points, start=30.0,120.0
+LOG MokrRun: applied from intent speed=4.8 cadence=3.1 stride=1.1 sat=14 mode=0 points=3
+HOOK android.app.Activity.onCreate [all]
+HOOK android.app.Activity.onNewIntent [all]
+LOG MokrRun: intent bridge installed
+PASS new_intent_without_extras_ignored
+
+=== gnss_payload_order_units (exit 1) ===
+LOG MokrRun: GnssStatus.Builder methods -> addSatellite(int,float,float,float,float) addSatellite(int,int,float,float,float,boolean,boolean,boolean,boolean,float,boolean,float) addSatellite(int,float,float,float,float,int) build() 
+LOG MokrRun: gnss addSatellite arity=12
+Exception in thread "main" java.lang.AssertionError: satellite 0 carrierHz=26.0
+	at com.mokrun.app.xposed.EngineRegression.check(EngineRegression.java:52)
+	at com.mokrun.app.xposed.EngineRegression.main(EngineRegression.java:496)

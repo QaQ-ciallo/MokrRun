@@ -74,7 +74,8 @@ public final class ConfigSync {
                 + ";spdmax=5.0"
                 + ";sat=14"
                 + ";qr=2"
-                + ";acc=0";
+                + ";acc=0"
+                + ";rs=1";
     }
 
     /**
@@ -133,6 +134,207 @@ public final class ConfigSync {
         }
     }
 
+    // ---- 会话通道：预备 / 确认启动 ----------------------------------------
+    //
+    // 目标进程可能已在前台（广播/onNewIntent），也可能没打开（需要拉起 + onCreate）。
+    // 两条路径携带同一套 extras，确认 token 由引擎做幂等，重复送达只应用一次。
+
+    public static final String CMD_ACTION = "com.mokrun.app.CMD";
+    public static final String ACK_ACTION = "com.mokrun.app.ACK";
+    public static final String OP_PREPARE = "prepare";
+    public static final String OP_CONFIRM = "confirm";
+
+    public static final int MODE_OFF = 0;
+    public static final int MODE_RUNNING = 1;
+    public static final int MODE_PAUSED = 2;
+    public static final int MODE_PREPARED = 3;
+
+    public static final String TARGET_PKG = "com.bxkj.student";
+    public static final String TARGET_ACTIVITY = "com.bxkj.student.splash.SplashActivity";
+
+    /** 建立预备会话：目标进程已在前台时走显式广播 */
+    public static boolean sendPrepare(Context ctx, String session) {
+        try {
+            Intent i = new Intent(CMD_ACTION);
+            i.setPackage(TARGET_PKG);
+            i.putExtra("op", OP_PREPARE);
+            i.putExtra("session", session == null ? "" : session);
+            i.putExtra("cfg", buildLine(ctx));
+            ctx.sendBroadcast(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "sendPrepare failed", t);
+            return false;
+        }
+    }
+
+    /** 建立预备会话并携带 ResultReceiver（binder 回调）：目标已运行时走这条 */
+    public static boolean launchPrepared(Context ctx, String session, android.os.Parcelable rr) {
+        Intent i = baseTargetIntent(ctx);
+        i.putExtra("mokr_op", OP_PREPARE);
+        i.putExtra("mokr_session", session == null ? "" : session);
+        i.putExtra("mokr_cfg", buildLine(ctx));
+        if (rr != null) i.putExtra("mokr_rr", rr);
+        return startTarget(ctx, i);
+    }
+
+    /** 建立预备会话（已运行路径）：显式广播里携带 ResultReceiver 句柄 */
+    public static boolean sendPrepare(Context ctx, String session, android.os.Parcelable rr) {
+        try {
+            Intent i = new Intent(CMD_ACTION);
+            i.setPackage(TARGET_PKG);
+            i.putExtra("op", OP_PREPARE);
+            i.putExtra("session", session == null ? "" : session);
+            i.putExtra("cfg", buildLine(ctx));
+            if (rr != null) i.putExtra("mokr_rr", rr);
+            ctx.sendBroadcast(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "sendPrepare(rr) failed", t);
+            return false;
+        }
+    }
+
+    /** 建立预备会话：目标进程没打开时拉起（配置随启动 Intent 送达） */
+    public static boolean launchPrepared(Context ctx, String session) {
+        Intent i = baseTargetIntent(ctx);
+        i.putExtra("mokr_op", OP_PREPARE);
+        i.putExtra("mokr_session", session == null ? "" : session);
+        i.putExtra("mokr_cfg", buildLine(ctx));
+        return startTarget(ctx, i);
+    }
+
+    /**
+     * 确认启动：一次下发完整配置。
+     * 已在前台 → 显式广播；没打开 → 拉起并在 onCreate 应用同一份配置。
+     */
+    public static boolean sendConfirm(Context ctx, String session, String token,
+                                      String origin, String route) {
+        try {
+            Intent i = new Intent(CMD_ACTION);
+            i.setPackage(TARGET_PKG);
+            i.putExtra("op", OP_CONFIRM);
+            i.putExtra("session", session == null ? "" : session);
+            i.putExtra("token", token == null ? "" : token);
+            i.putExtra("cfg", buildLine(ctx));
+            i.putExtra("origin", origin == null ? "" : origin);
+            i.putExtra("route", route == null ? "" : route);
+            ctx.sendBroadcast(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "sendConfirm failed", t);
+            return false;
+        }
+    }
+
+    /** 确认启动并携带 ResultReceiver（显式广播路径） */
+    public static boolean sendConfirm(Context ctx, String session, String token,
+                                      String origin, String route, android.os.Parcelable rr) {
+        try {
+            Intent i = new Intent(CMD_ACTION);
+            i.setPackage(TARGET_PKG);
+            i.putExtra("op", OP_CONFIRM);
+            i.putExtra("session", session == null ? "" : session);
+            i.putExtra("token", token == null ? "" : token);
+            i.putExtra("cfg", buildLine(ctx));
+            i.putExtra("origin", origin == null ? "" : origin);
+            i.putExtra("route", route == null ? "" : route);
+            if (rr != null) i.putExtra("mokr_rr", rr);
+            ctx.sendBroadcast(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "sendConfirm(rr) failed", t);
+            return false;
+        }
+    }
+
+    /** 确认启动并携带 ResultReceiver（冷启动路径） */
+    public static boolean launchConfirm(Context ctx, String session, String token,
+                                        String origin, String route, android.os.Parcelable rr) {
+        Intent i = baseTargetIntent(ctx);
+        i.putExtra("mokr_op", OP_CONFIRM);
+        i.putExtra("mokr_session", session == null ? "" : session);
+        i.putExtra("mokr_token", token == null ? "" : token);
+        i.putExtra("mokr_cfg", buildLine(ctx));
+        i.putExtra("mokr_origin", origin == null ? "" : origin);
+        i.putExtra("mokr_route", route == null ? "" : route);
+        if (rr != null) i.putExtra("mokr_rr", rr);
+        return startTarget(ctx, i);
+    }
+
+    public static boolean launchConfirm(Context ctx, String session, String token,
+                                        String origin, String route) {
+        Intent i = baseTargetIntent(ctx);
+        i.putExtra("mokr_op", OP_CONFIRM);
+        i.putExtra("mokr_session", session == null ? "" : session);
+        i.putExtra("mokr_token", token == null ? "" : token);
+        i.putExtra("mokr_cfg", buildLine(ctx));
+        i.putExtra("mokr_origin", origin == null ? "" : origin);
+        i.putExtra("mokr_route", route == null ? "" : route);
+        return startTarget(ctx, i);
+    }
+
+    private static Intent baseTargetIntent(Context ctx) {
+        Intent i = new Intent(Intent.ACTION_MAIN);
+        i.addCategory(Intent.CATEGORY_LAUNCHER);
+        // 不用 getLaunchIntentForPackage：HMA 之类的隐藏模块会把它挡掉
+        i.setClassName(TARGET_PKG, TARGET_ACTIVITY);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        return i;
+    }
+
+    private static boolean startTarget(Context ctx, Intent i) {
+        try {
+            ctx.startActivity(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "launch target failed", t);
+            return false;
+        }
+    }
+
+    /** 显式清除当前活动路线（用户主动操作；与「配置快照为空」严格区分） */
+    public static boolean sendClear(Context ctx, String session) {
+        try {
+            Intent i = new Intent(CMD_ACTION);
+            i.setPackage(TARGET_PKG);
+            i.putExtra("op", "clear");
+            i.putExtra("session", session == null ? "" : session);
+            ctx.sendBroadcast(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "sendClear failed", t);
+            return false;
+        }
+    }
+
+    /** 把目标应用切到前台（不携带任何配置，不改变状态） */
+    public static boolean bringTargetToFront(Context ctx) {
+        Intent i = new Intent(Intent.ACTION_MAIN);
+        i.addCategory(Intent.CATEGORY_LAUNCHER);
+        i.setClassName(TARGET_PKG, TARGET_ACTIVITY);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+        return startTarget(ctx, i);
+    }
+    /** 目标进程是否在运行：用于选择「广播」还是「拉起」通道 */
+    public static boolean isTargetRunning(Context ctx) {
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager)
+                    ctx.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am == null) return false;
+            java.util.List<android.app.ActivityManager.RunningAppProcessInfo> ps =
+                    am.getRunningAppProcesses();
+            if (ps == null) return false;
+            for (int i = 0; i < ps.size(); i++) {
+                if (TARGET_PKG.equals(ps.get(i).processName)) return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
     // ---- read side（hook 也走这里，不需要权限）------------------------------
 
     public static String get(Context ctx, String key) {
@@ -153,8 +355,9 @@ public final class ConfigSync {
     }
 
     public static String modeName(int mode) {
-        if (mode == 1) return "运行中";
-        if (mode == 2) return "就绪 · 已暂停";
+        if (mode == MODE_RUNNING) return "运行中";
+        if (mode == MODE_PAUSED) return "已暂停";
+        if (mode == MODE_PREPARED) return "已启用 · 待配置";
         return "未开始";
     }
 

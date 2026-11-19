@@ -1,0 +1,213 @@
+﻿[07:50:50] retest#1
+  top: topResumedActivity=ActivityRecord{62478856 u0 com.aliyun.tongyi/com.ucpro.MainActivity t969}
+  tick: 
+  evt: 11-18 07:45:23.831 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-489,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:45:43.854 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48c,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:46:03.863 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+---
+[07:51:21] retest#2
+  top: topResumedActivity=ActivityRecord{62478856 u0 com.aliyun.tongyi/com.ucpro.MainActivity t969}
+  tick: 
+  evt: 11-18 07:45:23.831 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-489,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:45:43.854 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48c,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:46:03.863 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+---
+[07:51:52] retest#3
+  top: topResumedActivity=ActivityRecord{246195689 u0 com.mokrun.app/.MainActivity t956}
+  tick: 
+  evt: 11-18 07:45:23.831 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-489,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:45:43.854 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48c,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:46:03.863 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+---
+[07:52:22] retest#4
+  top: topResumedActivity=ActivityRecord{246195689 u0 com.mokrun.app/.MainActivity t956}
+  tick: 
+  evt: 11-18 07:45:23.831 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-489,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:45:43.854 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48c,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:46:03.863 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+---
+[07:52:53] retest#5
+  top: topResumedActivity=ActivityRecord{256577699 u0 com.miui.home/.launcher.Launcher t2}
+  tick: 
+  evt: 11-18 07:46:03.863 I/LSPosedFramework(23400): (com.bxkj.student)[com.mokrun.app,XposedBridge,5b68-1a1ebd8ee5d-2-48f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+---
+[07:53:25] retest#6
+  top: topResumedActivity=ActivityRecord{256577699 u0 com.miui.home/.launcher.Launcher t2}
+  tick: 
+---
+[07:53:56] retest#7
+  top: topResumedActivity=ActivityRecord{174472446 u0 com.bxkj.student/.v2.ui.sports.v3.V3SportsHomeActivity t970}
+  tick: 
+  evt: 11-18 07:53:32.319 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-18b,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:53:41.186 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-199,0,1] MokrRun: face check done -> resume mode=0
+  evt: 11-18 07:53:48.236 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-19a,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=false
+---
+[07:54:27] retest#8
+  top: topResumedActivity=ActivityRecord{174472446 u0 com.bxkj.student/.v2.ui.sports.v3.V3SportsHomeActivity t970}
+  tick: 
+  evt: 11-18 07:53:41.186 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-199,0,1] MokrRun: face check done -> resume mode=0
+  evt: 11-18 07:53:48.236 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-19a,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=false
+  evt: 11-18 07:54:08.254 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-19f,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=false
+---
+[07:54:58] retest#9
+  top: topResumedActivity=ActivityRecord{260456022 u0 com.bxkj.student/.v2.ui.face.FaceLiveV3Activity t970}
+  tick: 
+  evt: 11-18 07:54:28.268 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-1a2,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=false
+  evt: 11-18 07:54:48.315 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-1d9,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=false
+  evt: 11-18 07:54:51.236 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-1dc,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+---
+[07:55:30] retest#10
+  top: topResumedActivity=ActivityRecord{137268010 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:55:08.436 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-230,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=false
+  evt: 11-18 07:55:08.444 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-233,0,1] MokrRun: applied from intent speed=4.8 cadence=3.1200001 stride=1.5384616 sat=14 mode=1 points=23
+  evt: 11-18 07:55:08.444 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-234,0,1] MokrRun: config via Intent (onCreate) speed=4.8;cadence=3.1200001;stride=1.5384616;anti=1;spdmax=5.0;sat=14;qr=2;acc=0;rs=1 run=1 routeLen=809
+---
+[07:56:00] retest#11
+  top: topResumedActivity=ActivityRecord{137268010 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:55:08.444 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-233,0,1] MokrRun: applied from intent speed=4.8 cadence=3.1200001 stride=1.5384616 sat=14 mode=1 points=23
+  evt: 11-18 07:55:08.444 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-234,0,1] MokrRun: config via Intent (onCreate) speed=4.8;cadence=3.1200001;stride=1.5384616;anti=1;spdmax=5.0;sat=14;qr=2;acc=0;rs=1 run=1 routeLen=809
+  evt: 11-18 07:55:54.581 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-275,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+---
+[07:56:32] retest#12
+  top: topResumedActivity=ActivityRecord{150244552 u0 com.bxkj.student/.v2.ui.face.FaceDetectV3Activity t970}
+  tick: 
+  evt: 11-18 07:55:54.581 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-275,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:56:09.030 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-280,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:56:29.049 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-2a0,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+---
+[07:57:03] retest#13
+  top: topResumedActivity=ActivityRecord{150244552 u0 com.bxkj.student/.v2.ui.face.FaceDetectV3Activity t970}
+  tick: 
+  evt: 11-18 07:56:09.030 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-280,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:56:29.049 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-2a0,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:56:49.068 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-2a9,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+---
+[07:57:34] retest#14
+  top: topResumedActivity=ActivityRecord{87651041 u0 com.bxkj.student/.v2.ui.MainActivity t970}
+  tick: 
+  evt: 11-18 07:57:09.117 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-2b2,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+  evt: 11-18 07:57:11.139 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-2ba,0,1] MokrRun: face check done -> resume mode=1
+  evt: 11-18 07:57:11.269 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-2bf,0,1] MokrRun: step listener - total=0
+---
+[07:58:06] retest#15
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:57:11.139 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-2ba,0,1] MokrRun: face check done -> resume mode=1
+  evt: 11-18 07:57:11.269 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-2bf,0,1] MokrRun: step listener - total=0
+  evt: 11-18 07:57:47.522 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3a0,0,1] MokrRun: step listener + type=19 regs=1 total=1
+---
+[07:58:37] retest#16
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:57:47.522 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3a0,0,1] MokrRun: step listener + type=19 regs=1 total=1
+  evt: 11-18 07:58:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3c5,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:58:18.488 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3e1,0,1] MokrRun: face check done -> resume mode=1
+---
+[07:59:08] retest#17
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:57:47.522 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3a0,0,1] MokrRun: step listener + type=19 regs=1 total=1
+  evt: 11-18 07:58:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3c5,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:58:18.488 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3e1,0,1] MokrRun: face check done -> resume mode=1
+---
+[07:59:39] retest#18
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:57:47.522 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3a0,0,1] MokrRun: step listener + type=19 regs=1 total=1
+  evt: 11-18 07:58:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3c5,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:58:18.488 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3e1,0,1] MokrRun: face check done -> resume mode=1
+---
+[08:00:10] retest#19
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:57:47.522 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3a0,0,1] MokrRun: step listener + type=19 regs=1 total=1
+  evt: 11-18 07:58:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3c5,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:58:18.488 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3e1,0,1] MokrRun: face check done -> resume mode=1
+---
+[08:00:42] retest#20
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:57:47.522 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3a0,0,1] MokrRun: step listener + type=19 regs=1 total=1
+  evt: 11-18 07:58:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3c5,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:58:18.488 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3e1,0,1] MokrRun: face check done -> resume mode=1
+---
+[08:01:13] retest#21
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:58:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3c5,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:58:18.488 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3e1,0,1] MokrRun: face check done -> resume mode=1
+  evt: 11-18 08:01:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-45c,0,1] MokrRun: face freeze timeout -> resuming
+---
+[08:01:44] retest#22
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 07:58:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3c5,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 07:58:18.488 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-3e1,0,1] MokrRun: face check done -> resume mode=1
+  evt: 11-18 08:01:12.875 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-45c,0,1] MokrRun: face freeze timeout -> resuming
+---
+[08:02:15] retest#23
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 08:01:52.189 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-47a,0,1] MokrRun: face check detected -> motion frozen (mode=2)
+  evt: 11-18 08:01:53.666 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-47c,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+  evt: 11-18 08:01:58.036 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-497,0,1] MokrRun: face check done -> resume mode=1
+---
+[08:02:47] retest#24
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 08:02:45.006 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4bb,0,1] MokrRun: applied from intent speed=4.8 cadence=3.1200001 stride=1.5384616 sat=14 mode=2 points=23
+  evt: 11-18 08:02:45.006 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4bc,0,1] MokrRun: config via broadcast speed=4.8;cadence=3.1200001;stride=1.5384616;anti=1;spdmax=5.0;sat=14;qr=2;acc=0;rs=1 run=2 routeLen=809
+  evt: 11-18 08:02:45.006 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4bd,0,1] MokrRun: command mode=2
+---
+[08:03:18] retest#25
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 08:02:45.006 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4bd,0,1] MokrRun: command mode=2
+  evt: 11-18 08:02:54.628 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4c2,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+  evt: 11-18 08:03:14.650 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4cb,0,1] MokrRun: idle mode=2 intentMode=true sConfigLoaded=true
+---
+[08:03:49] retest#26
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 08:03:32.389 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4d3,0,1] MokrRun: applied from intent speed=4.8 cadence=3.1200001 stride=1.5384616 sat=14 mode=1 points=23
+  evt: 11-18 08:03:32.390 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4d4,0,1] MokrRun: config via broadcast speed=4.8;cadence=3.1200001;stride=1.5384616;anti=1;spdmax=5.0;sat=14;qr=2;acc=0;rs=1 run=1 routeLen=809
+  evt: 11-18 08:03:32.390 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4d5,0,1] MokrRun: command mode=1
+---
+[08:04:20] retest#27
+  top: topResumedActivity=ActivityRecord{58822310 u0 com.bxkj.student/.v2.ui.sports.v3.V4SportActivity t970}
+  tick: 
+  evt: 11-18 08:03:32.389 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4d3,0,1] MokrRun: applied from intent speed=4.8 cadence=3.1200001 stride=1.5384616 sat=14 mode=1 points=23
+  evt: 11-18 08:03:32.390 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4d4,0,1] MokrRun: config via broadcast speed=4.8;cadence=3.1200001;stride=1.5384616;anti=1;spdmax=5.0;sat=14;qr=2;acc=0;rs=1 run=1 routeLen=809
+  evt: 11-18 08:03:32.390 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4d5,0,1] MokrRun: command mode=1
+---
+[08:04:51] retest#28
+  top: topResumedActivity=ActivityRecord{176269426 u0 com.bxkj.student/.v2.ui.sports.v3.V3SportsHomeActivity t970}
+  tick: 
+  evt: 11-18 08:03:32.390 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4d4,0,1] MokrRun: config via broadcast speed=4.8;cadence=3.1200001;stride=1.5384616;anti=1;spdmax=5.0;sat=14;qr=2;acc=0;rs=1 run=1 routeLen=809
+  evt: 11-18 08:03:32.390 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-4d5,0,1] MokrRun: command mode=1
+  evt: 11-18 08:04:46.108 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-51d,0,1] MokrRun: step listener - total=0
+---
+[08:05:23] retest#29
+  top: topResumedActivity=ActivityRecord{176269426 u0 com.bxkj.student/.v2.ui.sports.v3.V3SportsHomeActivity t970}
+  tick: 
+  evt: 11-18 08:04:52.436 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-52c,0,1] MokrRun: command mode=0
+  evt: 11-18 08:04:56.317 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-52d,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 08:05:16.344 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-53b,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+---
+[08:05:54] retest#30
+  top: topResumedActivity=ActivityRecord{176269426 u0 com.bxkj.student/.v2.ui.sports.v3.V3SportsHomeActivity t970}
+  tick: 
+  evt: 11-18 08:04:56.317 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-52d,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 08:05:16.344 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-53b,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 08:05:36.361 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-53e,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+---
+[08:06:25] retest#31
+  top: topResumedActivity=ActivityRecord{176269426 u0 com.bxkj.student/.v2.ui.sports.v3.V3SportsHomeActivity t970}
+  tick: 
+  evt: 11-18 08:05:36.361 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-53e,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 08:05:56.378 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-541,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+  evt: 11-18 08:06:16.396 I/LSPosedFramework( 8865): (com.bxkj.student)[com.mokrun.app,XposedBridge,22a1-1a1ebee023f-2-544,0,1] MokrRun: idle mode=0 intentMode=true sConfigLoaded=true
+---
+[08:06:57] retest sampling finished

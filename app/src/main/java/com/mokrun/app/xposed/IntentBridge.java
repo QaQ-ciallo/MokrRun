@@ -8,18 +8,18 @@ import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 
 /**
- * 配置的零权限通道。
+ * 配置的零权限通道（Intent 侧）。
  *
- * 模块 App 点「开始」时，用 startActivity 把配置塞进 Intent 的 extras。
- * 这里在本进程的 Activity 上把 extras 读出来交给引擎——
- * 全程只是一次标准的 Activity 启动，不需要 adb、root 或任何特殊权限。
- *
- * onNewIntent 也要接：体适能已经在前台时加了 SINGLE_TOP 不会重建，
- * 新配置只会从 onNewIntent 进来。
+ * 与 CommandReceiver 共用一套 extras：op=prepare|confirm、session、token、
+ * cfg、origin、route、mode。这样「目标应用没打开」时也能一次把会话/确认送进去，
+ * 并且确认只在目标进程内应用一次（幂等由 MotionEngine 的 token 保证）。
  */
 public final class IntentBridge {
 
     private static final String TAG = "MokrRun";
+    private static final String EX_OP = "mokr_op";
+    private static final String EX_SESSION = "mokr_session";
+    private static final String EX_TOKEN = "mokr_token";
     private static final String EX_CFG = "mokr_cfg";
     private static final String EX_ORIGIN = "mokr_origin";
     private static final String EX_ROUTE = "mokr_route";
@@ -36,12 +36,25 @@ public final class IntentBridge {
             Class<?> activity = XposedHelpers.findClass("android.app.Activity", cl);
             XposedBridge.hookAllMethods(activity, "onCreate", new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
-                    read(param.thisObject, "onCreate");
+                    Object obj = param.thisObject;
+                    if (!(obj instanceof Activity)) return;
+                    // onCreate 没有 Intent 参数：启动 Intent 只能从 Activity.getIntent() 取
+                    read(((Activity) obj).getIntent(), "onCreate");
                 }
             });
             XposedBridge.hookAllMethods(activity, "onNewIntent", new XC_MethodHook() {
                 @Override protected void afterHookedMethod(MethodHookParam param) {
-                    read(param.thisObject, "onNewIntent");
+                    // Android 官方文档：onNewIntent 期间 getIntent() 仍返回**旧的**启动 Intent，
+                    // 除非应用自己调用了 setIntent(newIntent)。
+                    Intent incoming = null;
+                    for (int i = 0; i < param.args.length; i++) {
+                        if (param.args[i] instanceof Intent) {
+                            incoming = (Intent) param.args[i];
+                            break;
+                        }
+                    }
+                    if (incoming == null) return;
+                    read(incoming, "onNewIntent");
                 }
             });
             XposedBridge.log(TAG + ": intent bridge installed");
@@ -50,18 +63,50 @@ public final class IntentBridge {
         }
     }
 
-    private static void read(Object obj, String from) {
+    private static void read(Intent it, String from) {
         try {
-            if (!(obj instanceof Activity)) return;
-            Intent it = ((Activity) obj).getIntent();
             if (it == null) return;
+            // 必须在读取**任何** extras 之前设置：extras 里可能含模块 APK 的 Parcelable
+            try {
+                it.setExtrasClassLoader(MotionEngine.class.getClassLoader());
+            } catch (Throwable ignored) {
+            }
+            String op = it.getStringExtra(EX_OP);
+            String session = it.getStringExtra(EX_SESSION);
+            String token = it.getStringExtra(EX_TOKEN);
             String cfg = it.getStringExtra(EX_CFG);
-            if (cfg == null || cfg.length() < 5) return;
-
             String origin = it.getStringExtra(EX_ORIGIN);
             String route = it.getStringExtra(EX_ROUTE);
             int run = it.getIntExtra(EX_RUN, 0);
 
+            // 模块把 ResultReceiver 句柄放在 extras 里：拿到后引擎在状态切换完成时直接回调
+            try {
+                android.os.Parcelable rr = it.getParcelableExtra("mokr_rr");
+                if (rr != null) MotionEngine.setAckReceiver(rr);
+            } catch (Throwable t) {
+                XposedBridge.log(TAG + ": read result receiver failed " + t);
+            }
+
+            if (MotionEngine.OP_PREPARE.equals(op)) {
+                MotionEngine.prepareSession(session, cfg);
+                XposedBridge.log(TAG + ": config via Intent (" + from + ") op=prepare session="
+                        + session);
+                return;
+            }
+            if (MotionEngine.OP_CLEAR.equals(op)) {
+                String err = MotionEngine.clearExplicit(session);
+                XposedBridge.log(TAG + ": config via Intent (" + from + ") op=clear result="
+                        + (err == null ? "ok" : err));
+                return;
+            }
+            if (MotionEngine.OP_CONFIRM.equals(op)) {
+                String err = MotionEngine.applyConfirm(session, token, cfg, origin, route);
+                XposedBridge.log(TAG + ": config via Intent (" + from + ") op=confirm result="
+                        + (err == null ? "ok" : err)
+                        + " routeLen=" + (route == null ? 0 : route.length()));
+                return;
+            }
+            if (cfg == null || cfg.length() < 5) return;
             MotionEngine.applyFromIntent(cfg, origin, route, run);
             XposedBridge.log(TAG + ": config via Intent (" + from + ") "
                     + cfg + " run=" + run

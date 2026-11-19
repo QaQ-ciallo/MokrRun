@@ -27,3 +27,14 @@ patch_*.py
 inspect*.py
 tmp_*
 *.log
+
+# python caches
+__pycache__/
+*.pyc
+
+
+# on-site acceptance artifacts (large, local only)
+docs/*/logcat-full*.txt
+# 实机日志一律留在本地：只保留清单与哈希
+docs/*/logcat-*.txt
+docs/*/shots*/

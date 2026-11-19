@@ -6,7 +6,10 @@ import android.os.Handler;
 import android.os.Looper;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Locale;
+import java.util.Map;
 
 import de.robv.android.xposed.XposedBridge;
 
@@ -25,6 +28,42 @@ public final class MotionEngine {
 
     private static final String TAG = "MokrRun";
     private static final long TICK_MS = 250L;
+
+    // ---- 参数合法区间 ------------------------------------------------------
+    // 任何来源（Intent / 广播 / ContentProvider / 设置页）的数值都必须过硬校验：
+    // Float.parseFloat 对超长数字返回 Infinity，而 Infinity 一旦进入累加器，
+    // 「减去 1 仍然是 Infinity」会让每个 tick 的补步循环永远退不出去，主线程直接卡死。
+    private static final float SPEED_MIN = 0.1f;
+    private static final float SPEED_HARD_MAX = 20f;
+    private static final float CADENCE_MIN = 0.1f;
+    private static final float CADENCE_MAX = 10f;
+    private static final float STRIDE_MIN = 0.2f;
+    private static final float STRIDE_MAX = 5f;
+    private static final int SAT_MIN = 1;
+    private static final int SAT_MAX = 64;
+    private static final int QR_MIN = 0;
+    private static final int QR_MAX = 2;
+    private static final float ALT_MIN = -500f;
+    private static final float ALT_MAX = 9000f;
+    private static final int ACC_MIN = -1;
+    private static final int ACC_MAX = 3;
+    private static final int MODE_MIN = 0;
+    private static final int MODE_MAX = 3;
+
+    /** 状态机取值，对外公开以便入口层与测试引用 */
+    public static final int MODE_OFF = 0;
+    public static final int MODE_RUNNING = 1;
+    public static final int MODE_PAUSED = 2;
+    /** 预备态：会话已启用、显示真实位置，不推进路线、不累加模拟步数 */
+    public static final int MODE_PREPARED = 3;
+    /** 单 tick 最多补多少步：即使配置/时钟异常，主线程也只被占用有限次迭代 */
+    private static final int STEP_MAX_PER_TICK = 64;
+    /**
+     * 单个 tick 的有效运动时间上限。
+     * 距离与步数必须共用同一个时间窗：曾经距离用完整 dt（最长 120 s）、
+     * 步数只用 min(dt,2 s)，卡顿 5 秒就得到「24 米 / 6 步」这种不同源的数据。
+     */
+    private static final double DT_MAX = 2.0;
 
     private static volatile float sSpeed = 2.5f;
     private static volatile float sCadence = 2.2f;
@@ -45,8 +84,8 @@ public final class MotionEngine {
      * 速度与质量两个变量没分开。质量伪装（qr/sat/acc）生效后，5.0 m/s 是正常的。
      */
     private static volatile float sSpeedMax = 5.0f;
-    /** 是否屏蔽真实传感器注册（步数双源 A/B 开关，cfg 里 rs=1 打开） */
-    private static volatile boolean sSuppressRealSteps = false;
+    /** 默认只投递合成步数；rs=0 仅用于诊断双源，正常运行必须保持 rs=1。 */
+    private static volatile boolean sSuppressRealSteps = true;
     /** 跨场次累计的步数基数：保证 TYPE_STEP_COUNTER 单调递增，不会「变小」 */
     private static volatile long sStepBase = 0;
     /** 伪装海拔（米）。真实 Location 里没设 altitude，取出来是 0.0，本身就很可疑 */
@@ -55,22 +94,101 @@ public final class MotionEngine {
     private static volatile int sGpsAccStatus = 0;
     /** 人脸识别期间冻结状态 */
     private static volatile boolean sFaceFrozen = false;
+    /** 冻结代数：每次取消/新建都会 ++，旧超时据此判定自己已经过期 */
+    private static volatile int sFreezeGen = 0;
+    /** 冻结前的模式；冻结期间若 App 侧改了意图（provider 的 run 变化），这里会被更新 */
     private static volatile int sPrevMode = 1;
     private static Handler sFaceHandler = null;
     /** 人脸识别冻结最长 3 分钟，超时自动恢复（防止卡死在暂停态） */
     private static final long FACE_FREEZE_MS = 180000L;
+    // ---- 会话与确认 --------------------------------------------------------
+    /** 本次会话标识：由模块 App 生成，用于拒绝旧会话的迟到命令 */
+    private static volatile String sSessionId = "";
+    /** 会话是否启用（预备态也属于已启用；未启用时不接管任何东西） */
+    private static volatile boolean sSessionEnabled = false;
+    /**
+     * 路线是否已「确认」。只有确认过的路线才允许覆盖坐标与推进；
+     * 编辑中的草稿永远不会走到这里（草稿存在模块 App 的 prefs，不下发引擎）。
+     */
+    private static volatile boolean sRouteConfirmed = false;
+    /** 已成功应用的确认标识：用于幂等，重复确认直接忽略 */
+    private static volatile String sAppliedToken = "";
+    /** 当前会话确认后的权威路线快照（只由 CONFIRM 写入，供 Provider 对照与日志） */
+    private static volatile String sConfirmedOrigin = "";
+    /** 模块传入的 ResultReceiver（binder 回调）：PREPARE/CONFIRM/CLEAR 的结果主通道 */
+    private static volatile Object sAckReceiver = null;
 
-    /** 路线：index 0 是起点，后面是途经点 */
-    private static volatile double[] sLat = new double[]{39.908700};
-    private static volatile double[] sLon = new double[]{116.397500};
+    public static void setAckReceiver(Object rr) {
+        sAckReceiver = rr;
+        if (rr != null) {
+            XposedBridge.log(TAG + ": ack receiver registered " + rr.getClass().getName());
+        }
+    }
+
+    private static boolean fireResultReceiver(String op, String session, String token, boolean ok,
+                                              String reason) {
+        Object rr = sAckReceiver;
+        if (rr == null) return false;
+        try {
+            android.os.Bundle b = new android.os.Bundle();
+            b.putString("op", op == null ? OP_CONFIRM : op);
+            b.putString("session", session == null ? "" : session);
+            b.putString("token", token == null ? "" : token);
+            b.putBoolean("ok", ok);
+            b.putInt("mode", sMode);
+            b.putLong("at", System.currentTimeMillis());
+            if (reason != null) b.putString("reason", reason);
+            Class<?> c = rr.getClass();
+            java.lang.reflect.Method m = null;
+            // ResultReceiver.send(int, Bundle) 在子类里可能不是 public，逐个向上找
+            while (c != null && m == null) {
+                try {
+                    m = c.getDeclaredMethod("send", int.class, android.os.Bundle.class);
+                    m.setAccessible(true);
+                } catch (NoSuchMethodException ignored) {
+                    c = c.getSuperclass();
+                }
+            }
+            if (m != null) {
+                m.invoke(rr, Integer.valueOf(0), b);
+                XposedBridge.log(TAG + ": ack via ResultReceiver op=" + op
+                        + " session=" + session + " ok=" + ok);
+                return true;
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": ResultReceiver callback failed " + t);
+        }
+        return false;
+    }
+    private static volatile String sConfirmedRoute = "";
+    /** 会话操作名：两条入口（广播 / Intent）共用，避免入口层互相依赖 */
+    public static final String OP_PREPARE = "prepare";
+    public static final String OP_CONFIRM = "confirm";
+    public static final String OP_CLEAR = "clear";
+    /** 确认回执广播（目标进程 → 模块 App），模块 App 据此判定「真的应用了」 */
+    public static final String ACTION_ACK = "com.mokrun.app.ACK";
+    /** provider 最近一次读到的 run 值，用于区分「App 改了状态」和「App prefs 是旧的」 */
+    private static final int PROVIDER_MODE_UNKNOWN = Integer.MIN_VALUE;
+    private static volatile int sProviderMode = PROVIDER_MODE_UNKNOWN;
+
+    /** 路线：index 0 是起点，后面是途经点。空数组 = 没有有效路线 */
+    private static volatile double[] sLat = new double[0];
+    private static volatile double[] sLon = new double[0];
     private static volatile String sLastOrigin = "";
     private static volatile int sLastRouteHash = 0;
 
-    private static volatile double sCurLat = 39.908700;
-    private static volatile double sCurLon = 116.397500;
+    /** 没有有效路线时不接管位置，也不给目标应用任何默认坐标 */
+    private static volatile double sCurLat = 0.0;
+    private static volatile double sCurLon = 0.0;
     private static volatile double sDistTotal = 0.0;
     private static volatile double sSegProgress = 0.0;
     private static volatile int sSeg = 0;
+    /**
+     * 推进方向：+1 沿数组向后，-1 折返。
+     * 路线是用户画的开放折线，没有任何「末点回到起点」的闭合腿；
+     * 到端点后沿原路折返，既不瞬移，也不凭空补出用户没画过的几何。
+     */
+    private static volatile int sDir = 1;
     private static volatile long sSteps = 0;
     private static volatile double sStepAccum = 0.0;
     private static volatile boolean sConfigLoaded = false;
@@ -83,16 +201,33 @@ public final class MotionEngine {
     private static Handler sHandler = null;
     private static long sTicks = 0;
     private static long sLastTick = 0L;
-    private static final ArrayList<LocationListener> sListeners = new ArrayList<LocationListener>();
+    /** 定位监听器：value = true 表示单次定位（requestSingleUpdate），投递一次即解除 */
+    private static final Map<LocationListener, Boolean> sListeners =
+            Collections.synchronizedMap(new IdentityHashMap<LocationListener, Boolean>());
     private static android.content.Context sCtx = null;
 
     private MotionEngine() {}
+
+    /** 只接受「有限且落在业务区间内」的浮点数；越界/NaN/Infinity 一律拒绝 */
+    private static boolean inRange(float v, float min, float max) {
+        return !Float.isNaN(v) && !Float.isInfinite(v) && v >= min && v <= max;
+    }
+
+    private static boolean inRange(int v, int min, int max) {
+        return v >= min && v <= max;
+    }
 
     // ---- public accessors for the hooks ------------------------------------
 
     public static double lat() { return sCurLat; }
     public static double lon() { return sCurLon; }
-    public static float speedNow() { return sSpeed; }
+
+    /**
+     * 当前运动速度。配置速度只用于推进计算：暂停/未开始时人是不动的，
+     * 这里必须回 0，否则目标应用会看到「位置冻结但速度为 4.8 m/s」的矛盾数据。
+     */
+    public static float speedNow() { return isRunningNow() ? sSpeed : 0f; }
+
     public static long steps() { return sSteps; }
 
     /** 伪装卫星数：14 上下 ±2 抖动（真实 GPS 不会恒定） */
@@ -126,14 +261,22 @@ public final class MotionEngine {
     public static void freezeForFace() {
         if (sFaceFrozen) return;
         sFaceFrozen = true;
+        final int gen = ++sFreezeGen;
+        // 恢复目标 = 冻结前的模式；未开始时保持未开始，暂停时保持暂停
         sPrevMode = sMode;
-        setMode(2);
+        applyInternalMode(2);
         XposedBridge.log(TAG + ": face check detected -> motion frozen (mode=2)");
         try {
             if (sFaceHandler == null) sFaceHandler = new Handler(Looper.getMainLooper());
             sFaceHandler.removeCallbacksAndMessages(null);
             sFaceHandler.postDelayed(new Runnable() {
                 @Override public void run() {
+                    if (gen != sFreezeGen) {
+                        // 冻结已被显式命令/新会话取消：这条旧超时不得改状态
+                        XposedBridge.log(TAG + ": stale freeze timeout ignored (gen "
+                                + gen + " != " + sFreezeGen + ")");
+                        return;
+                    }
                     XposedBridge.log(TAG + ": face freeze timeout -> resuming");
                     resumeAfterFace();
                 }
@@ -143,28 +286,82 @@ public final class MotionEngine {
         }
     }
 
-    /** 识别做完后恢复原来的模式（默认回 1 = 继续跑） */
+    /** 识别做完后恢复冻结前的模式。不会把「未开始」猜成「运行」 */
     public static void resumeAfterFace() {
         if (!sFaceFrozen) return;
+        if (!sSessionEnabled) {
+            // 会话已结束：恢复目标属于上一场，不能回到旧模式，直接交还真实位置
+            sFaceFrozen = false;
+            applyInternalMode(MODE_OFF);
+            XposedBridge.log(TAG + ": freeze resume without session -> mode=OFF");
+            return;
+        }
         sFaceFrozen = false;
-        int back = sPrevMode == 0 ? 1 : sPrevMode;
-        setMode(back);
+        int back = sPrevMode;
+        applyInternalMode(back);
         XposedBridge.log(TAG + ": face check done -> resume mode=" + back);
     }
 
     public static boolean faceFrozen() { return sFaceFrozen; }
 
+    /**
+     * 撤销冻结但不改变当前模式。
+     * 用户按下暂停/结束/继续，或者冻结超时任务被替换时使用——
+     * 之后再来的旧弹窗关闭事件、旧超时任务都不能把状态改回去。
+     */
+    private static void cancelFaceFreeze(String reason) {
+        if (!sFaceFrozen) return;
+        sFaceFrozen = false;
+        Handler h = sFaceHandler;
+        if (h != null) {
+            try {
+                h.removeCallbacksAndMessages(null);
+            } catch (Throwable ignored) {
+            }
+        }
+        sFreezeGen++;
+        XposedBridge.log(TAG + ": face freeze cancelled (" + reason + ")");
+    }
+
+    /** 引擎自己的状态切换（冻结/恢复），不走「显式命令」的取消冻结逻辑 */
+    private static void applyInternalMode(int mode) {
+        sMode = inRange(mode, MODE_MIN, MODE_MAX) ? mode : 0;
+        sIntentMode = true;
+        sRunCheckedAt = System.currentTimeMillis();
+    }
+
     public static boolean hasRoute() { return sLat != null && sLat.length > 1; }
 
-    /** 正在接管位置（运行或冻结）。没有路线时不接管——否则会把人丢到默认坐标上 */
-    public static boolean isActive() {
-        return readMode() != 0 && hasRoute();
+    /** 路线是否已经由用户「确认」过（草稿永远不算） */
+    public static boolean isRouteConfirmed() { return sRouteConfirmed; }
+
+    /** 会话是否启用：预备态也属于已启用，允许没有路线 */
+    public static boolean isSessionEnabled() { return sSessionEnabled; }
+
+    /**
+     * 是否覆盖坐标：只有「已确认路线的 RUNNING / PAUSED」才接管位置。
+     * 预备态（PREPARED）、未启用（OFF）都必须放行真实定位。
+     */
+    public static boolean shouldOverridePosition() {
+        int mode = readMode();
+        return sRouteConfirmed && hasRoute()
+                && (mode == MODE_RUNNING || mode == MODE_PAUSED);
     }
 
-    /** 只有运行中才推进 */
-    public static boolean isRunningNow() {
-        return readMode() == 1;
+    /** 是否推进运动：只有 RUNNING + 已确认路线 + 路线有效 */
+    public static boolean shouldAdvanceMotion() {
+        return sRouteConfirmed && hasRoute() && readMode() == MODE_RUNNING;
     }
+
+    /** 兼容旧调用点：等价于「是否覆盖坐标」，不含预备态 */
+    public static boolean isActive() { return shouldOverridePosition(); }
+
+    /** 兼容旧调用点：等价于「是否推进运动」 */
+    public static boolean isRunningNow() { return shouldAdvanceMotion(); }
+
+    public static String sessionId() { return sSessionId; }
+    public static String appliedToken() { return sAppliedToken; }
+    public static int mode() { return readMode(); }
 
     /**
      * 运行状态只从 ContentProvider 取。
@@ -176,7 +373,11 @@ public final class MotionEngine {
         if (now - sRunCheckedAt < 400L) return sMode;
         sRunCheckedAt = now;
         if (sCtx == null) return sMode;
-        if (readProvider()) return sMode;
+        Integer run = readProvider();
+        if (run != null) {
+            applyProviderMode(run.intValue());
+            return sMode;
+        }
         // provider 不可用（MIUI 拦跨应用 provider）：
         // 若 mode 是 Intent 明确指定的，就保持不变，否则才归零
         if (sIntentMode) return sMode;
@@ -184,10 +385,50 @@ public final class MotionEngine {
         return sMode;
     }
 
+    /**
+     * provider 里的 run 是「App 侧的用户意图」，但只有它**发生变化**时
+     * 才代表一次新的用户操作。值没变说明 App 的 prefs 还是旧的
+     * （例如用户用 adb 广播暂停、或引擎自己为了人脸识别冻结），
+     * 此时循环读取不能把引擎里更新的状态覆盖回去。
+     */
+    private static void applyProviderMode(int run) {
+        if (!inRange(run, MODE_MIN, MODE_MAX)) return;
+        boolean first = sProviderMode == PROVIDER_MODE_UNKNOWN;
+        boolean changed = !first && run != sProviderMode;
+        sProviderMode = run;
+        if (sFaceFrozen) {
+            // 冻结期间 provider 的 run 发生变化 = 用户在 App 侧按下了暂停/结束/继续：
+            // 这是新的显式命令，撤销冻结并采用它，否则要等 3 分钟超时才生效。
+            if (!first && changed) {
+                cancelFaceFreeze("provider mode=" + run);
+                sMode = run;
+            }
+            return;
+        }
+        if (first) {
+            if (!sIntentMode) sMode = run;
+            return;
+        }
+        if (changed) sMode = run;
+    }
+
 
     /** 由广播通道调用：暂停 / 继续 / 结束 */
     public static void setMode(int mode) {
+        if (!inRange(mode, MODE_MIN, MODE_MAX)) {
+            XposedBridge.log(TAG + ": mode rejected (" + mode + ")");
+            return;
+        }
+        // 显式命令优先于内部冻结：用户已经用暂停/继续/结束表达了新意图，
+        // 不能再等 3 分钟超时或某次旧弹窗关闭把状态改回冻结前的值。
+        cancelFaceFreeze("command mode=" + mode);
         sMode = mode;
+        if (mode == MODE_OFF) {
+            // 结束 = 会话终止：清掉确认标识，迟到确认不能把引擎重新拉起来
+            sSessionEnabled = false;
+            sRouteConfirmed = false;
+            sAppliedToken = "";
+        }
         sIntentMode = true;      // 一旦被明确设置，就由它主导，不再回落
         sRunCheckedAt = System.currentTimeMillis();
         XposedBridge.log(TAG + ": mode set to " + mode + " (via command)");
@@ -197,7 +438,7 @@ public final class MotionEngine {
         Location l = new Location("gps");
         l.setLatitude(sCurLat);
         l.setLongitude(sCurLon);
-        l.setSpeed(sSpeed);
+        l.setSpeed(speedNow());
         l.setAccuracy(3.0f);
         l.setAltitude(altitude());
         l.setTime(System.currentTimeMillis());
@@ -243,12 +484,39 @@ public final class MotionEngine {
     }
 
     public static void addListener(LocationListener l) {
+        addListener(l, false);
+    }
+
+    /** requestSingleUpdate 的监听器：只投递一次，投递后自动解除 */
+    public static void addSingleShotListener(LocationListener l) {
+        addListener(l, true);
+    }
+
+    private static void addListener(LocationListener l, boolean oneShot) {
         if (l != null) {
             synchronized (sListeners) {
-                if (!sListeners.contains(l)) sListeners.add(l);
+                Boolean previous = sListeners.get(l);
+                // 连续注册不会被单次注册降级；单次注册也不会把连续注册改成单次
+                if (previous == null || (previous.booleanValue() && !oneShot)) {
+                    sListeners.put(l, Boolean.valueOf(oneShot));
+                }
             }
         }
         start();
+    }
+
+    /**
+     * 框架调用 removeUpdates(listener) 时同步解除引擎引用。
+     * 之前没有任何移除路径：应用注销后引擎每个 tick 仍在回调它，
+     * 目标应用会收到「已经注销却还在更新」的定位，属于明显异常。
+     */
+    public static void removeListener(LocationListener l) {
+        if (l == null) return;
+        boolean removed;
+        synchronized (sListeners) {
+            removed = sListeners.remove(l) != null;
+        }
+        if (removed) XposedBridge.log(TAG + ": location listener removed");
     }
 
     // ---- config ------------------------------------------------------------
@@ -258,28 +526,39 @@ public final class MotionEngine {
      * App 有常驻前台服务，provider 一定活着，MIUI 不会拦冷启动。
      * 传的都是 App 本地 prefs 里的值，读写都不需要特殊权限。
      */
-    private static boolean readProvider() {
-        if (sCtx == null) return false;
+    private static Integer readProvider() {
+        if (sCtx == null) return null;
         android.database.Cursor c = null;
         try {
             c = sCtx.getContentResolver().query(
                     android.net.Uri.parse("content://com.mokrun.app.config/config"),
                     null, null, null, null);
-            if (c == null || !c.moveToFirst()) return false;
+            if (c == null || !c.moveToFirst()) return null;
             float sp = c.getFloat(0);
             float cd = c.getFloat(1);
             float st = c.getFloat(2);
             String origin = c.getString(4);
             String route = c.getString(5);
             int run = c.getInt(6);
-            applyOriginRoute(origin, route);
+            // 已确认的路线不允许被 prefs 里的旧路线替换：Provider 只负责参数与状态，
+            // 换路线只能走确认操作（否则暂停/轮询就会把新路线换回旧的并清零进度）。
+            // 已确认的路线由当前会话持有权威快照：Provider 只是「持久化配置快照」，
+            // 空/旧数据都不构成撤销指令。清除只能走显式命令（op=clear）或结束会话。
+            if (sRouteConfirmed) {
+                boolean providerDiffers = route == null
+                        || !route.trim().equals(sConfirmedRoute);
+                if (providerDiffers) {
+                    XposedBridge.log(TAG + ": provider route ignored (confirmed session holds authority)");
+                }
+            } else {
+                applyOriginRoute(origin, route);
+            }
             applyConfigInner(sp, cd, st);
-            sMode = run;
             sRunCheckedAt = System.currentTimeMillis();
-            return true;
+            return Integer.valueOf(run);
         } catch (Throwable t) {
             XposedBridge.log(TAG + ": provider read failed " + t);
-            return false;
+            return null;
         } finally {
             if (c != null) {
                 try { c.close(); } catch (Throwable ignored) {}
@@ -293,19 +572,335 @@ public final class MotionEngine {
      */
     private static synchronized boolean tryRead() {
         if (sCtx == null) return false;
-        if (readProvider()) {
-            sConfigLoaded = true;
-            return true;
-        }
-        return false;
+        Integer run = readProvider();
+        if (run == null) return false;
+        applyProviderMode(run.intValue());
+        sConfigLoaded = true;
+        return true;
     }
 
 
     /**
      * 从模块 App 的启动 Intent 里应用配置（零权限通道）。
      * cfg 格式："speed=3.0;cadence=2.4;stride=1.25;anti=1"
+     *
+     * 这是**旧通道**，保留给 adb/调试与既有回归使用；新流程走
+     * prepareSession() + applyConfirm()。走旧通道时视为「路线即确认」，
+     * 以维持既有行为不变。
      */
     public static void applyFromIntent(String cfg, String origin, String waypoints, int run) {
+        applyCfgParams(cfg);
+        // 路线只对「开始/继续」有意义；暂停(2)与结束(0)携带的 origin/route
+        // 一律忽略，否则悬浮窗命令会把已确认的路线换回 prefs 里的旧路线并清零进度。
+        // 字段缺失 ≠ 显式空值：悬浮窗的暂停/继续只带 cfg + mode，origin/route 是 null，
+        // 不能因此当成「清除」。只有「结束(run=0) + 两个字段显式给空」才是旧式清除。
+        boolean originAbsent = origin == null;
+        boolean routeAbsent = waypoints == null;
+        boolean bothEmpty = (origin == null || origin.trim().length() == 0)
+                && (waypoints == null || waypoints.trim().length() <= 4);
+        boolean routeClears = (run == MODE_OFF) && bothEmpty && !(originAbsent && routeAbsent);
+        // 新会话尚未确认：旧式命令（开始/暂停）一律不得授予或改变确认状态
+        if (sSessionEnabled && !sRouteConfirmed) {
+            if (run == MODE_RUNNING) {
+                XposedBridge.log(TAG + ": legacy start rejected (session unconfirmed, need CONFIRM)");
+                return;
+            }
+            if (run == MODE_PAUSED) {
+                XposedBridge.log(TAG + ": pause ignored during unconfirmed session");
+                sIntentMode = true;
+                sRunCheckedAt = System.currentTimeMillis();
+                return;
+            }
+        }
+        boolean legacyNoSession = !sSessionEnabled || sRouteConfirmed;
+        boolean routeAllowed = (run == MODE_RUNNING) || routeClears;
+        if (!sRouteConfirmed || routeAllowed) applyOriginRouteIfGiven(origin, waypoints);
+        sSessionEnabled = true;
+        // 确认状态只能由「旧协议的开始命令(run=1)」或 CONFIRM 授予；
+        // 暂停/参数更新在未确认会话里不得用 hasRoute() 隐式确认旧路线。
+        // 旧协议兼容范围：没有新会话（或已确认）时，run=2 仍按「带路线的暂停」处理。
+        if (run == MODE_RUNNING) {
+            if (hasRoute()) {
+                sRouteConfirmed = true;
+                sConfirmedOrigin = origin == null ? "" : origin.trim();
+                sConfirmedRoute = waypoints == null ? "" : waypoints.trim();
+            }
+        } else if (routeClears) {
+            sRouteConfirmed = false;
+            sConfirmedOrigin = "";
+            sConfirmedRoute = "";
+        } else if (legacyNoSession && hasRoute() && !sRouteConfirmed) {
+            sRouteConfirmed = true;
+            sConfirmedOrigin = origin == null ? "" : origin.trim();
+            sConfirmedRoute = waypoints == null ? "" : waypoints.trim();
+        }
+        if (inRange(run, MODE_MIN, MODE_MAX)) {
+            // 带配置的控制命令同样是显式命令：悬浮窗的「结束/暂停/继续」会带上
+            // cfg/origin/route 走 CommandReceiver → 这里（不是 setMode）。
+            // 必须在这里撤销旧的冻结与它的 3 分钟超时，否则新状态会被定时任务覆盖。
+            cancelFaceFreeze("config mode=" + run);
+            sMode = run;
+            if (run == MODE_OFF) {
+                sSessionEnabled = false;
+                sRouteConfirmed = false;
+                sAppliedToken = "";
+            }
+        } else {
+            XposedBridge.log(TAG + ": run mode rejected (" + run + "), keep mode=" + sMode);
+        }
+        sIntentMode = true;
+        sRunCheckedAt = System.currentTimeMillis();
+        sConfigLoaded = true;
+        XposedBridge.log(TAG + ": applied from intent speed=" + sSpeed
+                + " cadence=" + sCadence + " stride=" + sStride
+                + " sat=" + sSat
+                + " mode=" + run + " points=" + sLat.length);
+    }
+
+    // ---- 会话：预备 → 确认启动 -------------------------------------------
+
+    /**
+     * 建立一次预备会话：不要求有路线，不覆盖坐标、不推进、不累加模拟步数。
+     * 目标应用在此期间看到的是真实定位（shouldOverridePosition() == false）。
+     */
+    public static void prepareSession(String session, String cfg) {
+        // 建立预备会话就隔离上一场的冻结/超时：不能等确认时才取消，
+        // 否则预备期停留超过 3 分钟会被旧回调改掉状态。
+        cancelFaceFreeze("prepare");
+        sSessionId = session == null ? "" : session;
+        sSessionEnabled = true;
+        // 上一场的确认不得沿用到新会话
+        sRouteConfirmed = false;
+        sAppliedToken = "";
+        sConfirmedOrigin = "";
+        sConfirmedRoute = "";
+        if (cfg != null && cfg.length() > 4) applyCfgParams(cfg);
+        sMode = MODE_PREPARED;
+        sIntentMode = true;
+        sRunCheckedAt = System.currentTimeMillis();
+        sConfigLoaded = true;
+        // 预备态不建立运动时间基准：确认时再重置，避免补算停留时长
+        sLastTick = 0L;
+        XposedBridge.log(TAG + ": prepared session=" + sSessionId
+                + " mode=PREPARED points=" + sLat.length);
+        sendAck(sSessionId, "", true, null, OP_PREPARE);
+    }
+
+    /**
+     * 确认启动：在**同一个操作**里校验完整配置、建立路线、重置累计基数与运动时钟，
+     * 然后进入 RUNNING。幂等：同一 token 重复确认只应用一次。
+     *
+     * @return null 表示成功；否则返回可直接展示给用户的失败原因
+     */
+    public static String applyConfirm(String session, String token, String cfg,
+                                      String origin, String route) {
+        if (token == null || token.length() == 0) {
+            // 没有 token 无法配对回执，但模块侧仍需要「有结果」：用空 token 回一条失败
+            sendAck(session, "", false, "缺少确认标识");
+            return "缺少确认标识";
+        }
+        if (token.equals(sAppliedToken)) {
+            String msg = "该路线已确认过（重复点击已忽略）";
+            sendAck(session, token, false, msg);
+            return msg;
+        }
+        if (!sSessionEnabled) {
+            String msg = "会话未启用或已结束";
+            sendAck(session, token, false, msg);
+            return msg;
+        }
+        if (session == null || !session.equals(sSessionId)) {
+            String msg = "会话已失效（旧会话的确认已拒绝）";
+            sendAck(session, token, false, msg);
+            return msg;
+        }
+        // 幂等不只靠 token：同一会话只要已经确认过，就不再接受第二次确认，
+        // 否则换一个 token 就能把正在跑的进度清零并重新起跑。
+        if (sRouteConfirmed) {
+            String msg = "本次会话已确认并启动，不能重复启动（请先结束本次会话）";
+            sendAck(session, token, false, msg);
+            return msg;
+        }
+
+        double[][] built = buildRouteArrays(origin, route);
+        if (built == null) {
+            String msg = "路线无效：需要有效起点与至少 1 个途经点";
+            sendAck(session, token, false, msg);
+            return msg;
+        }
+
+        if (cfg != null && cfg.length() > 4) applyCfgParams(cfg);
+
+        sLat = built[0];
+        sLon = built[1];
+        sConfirmedOrigin = origin == null ? "" : origin.trim();
+        sConfirmedRoute = route == null ? "" : route.trim();
+        sLastOrigin = origin == null ? "" : origin.trim();
+        sLastRouteHash = route == null ? 0 : route.hashCode();
+        sRouteConfirmed = true;
+        // 当前位置必须立刻落到新路线起点：否则 shouldOverridePosition() 已经为真，
+        // 而 sCurLat/sCurLon 还是 0,0（或上一场的位置），目标应用会看到 (0,0)。
+        sCurLat = sLat[0];
+        sCurLon = sLon[0];
+        sSeg = 0;
+        sSegProgress = 0;
+        sDir = 1;
+        cancelFaceFreeze("confirm");
+        // 重置累计：步数基数保持单调，里程归零，sLastTick 归零 → 首个 tick 用 250ms 基准
+        resetCounters();
+        sMode = MODE_RUNNING;
+        sIntentMode = true;
+        sRunCheckedAt = System.currentTimeMillis();
+        sAppliedToken = token;
+        sendAck(session, token, true, null);
+        XposedBridge.log(TAG + ": confirm applied session=" + session
+                + " token=" + token + " points=" + sLat.length + " mode=RUNNING");
+        return null;
+    }
+
+    /**
+     * 显式清除当前活动路线（用户主动操作）。与「Provider 快照为空」严格区分：
+     * 只有这条命令能撤销已确认路线而保留会话。
+     */
+    public static String clearExplicit(String session) {
+        if (session != null && session.length() > 0
+                && !session.equals(sSessionId)) {
+            String msg = "会话已失效（旧会话的清除命令已拒绝）";
+            XposedBridge.log(TAG + ": clear rejected (stale session " + session + ")");
+            return msg;
+        }
+        clearRoute();
+        sRouteConfirmed = false;
+        sAppliedToken = "";
+        sConfirmedOrigin = "";
+        sConfirmedRoute = "";
+        sendAck(session, "", true, null, OP_CLEAR);
+        XposedBridge.log(TAG + ": route cleared explicitly session=" + sSessionId);
+        return null;
+    }
+
+    /** 结束会话：交还真实位置，清空确认标识，之后的迟到确认一律拒绝 */
+    public static void endSession() {
+        cancelFaceFreeze("session end");
+        sSessionEnabled = false;
+        sRouteConfirmed = false;
+        sAppliedToken = "";
+        sAckReceiver = null;
+        sMode = MODE_OFF;
+        sIntentMode = true;
+        sRunCheckedAt = System.currentTimeMillis();
+        XposedBridge.log(TAG + ": session ended (mode=OFF)");
+    }
+
+    /**
+     * 解析并校验起点 + 途经点，返回 {lat[], lon[]}；任何一项非法都返回 null。
+     * 与 applyOriginRoute 的区别：这里不写状态、不因「hash 未变」提前返回，
+     * 因为确认操作必须每次都能拿到完整、经过校验的数组。
+     */
+    private static double[][] buildRouteArrays(String originStr, String waypointsJson) {
+        String os = originStr == null ? "" : originStr.trim();
+        if (!os.contains(",")) return null;
+        double oLat, oLon;
+        try {
+            String[] p = os.split(",");
+            if (p.length < 2) return null;
+            oLat = Double.parseDouble(p[0].trim());
+            oLon = Double.parseDouble(p[1].trim());
+        } catch (Throwable t) {
+            return null;
+        }
+        if (!validCoord(oLat, oLon)) return null;
+
+        java.util.ArrayList<double[]> wps = new java.util.ArrayList<double[]>();
+        if (waypointsJson != null && waypointsJson.length() > 4) {
+            try {
+                org.json.JSONArray arr = new org.json.JSONArray(waypointsJson);
+                for (int i = 0; i < arr.length(); i++) {
+                    org.json.JSONObject o = arr.getJSONObject(i);
+                    double la = o.getDouble("lat");
+                    double lo = o.getDouble("lng");
+                    if (!validCoord(la, lo)) return null;
+                    wps.add(new double[]{la, lo});
+                }
+            } catch (Throwable t) {
+                return null;
+            }
+        }
+        if (wps.isEmpty()) return null;   // 只有起点 → 没有可推进的路线
+
+        int n = wps.size() + 1;
+        double[] lat = new double[n];
+        double[] lon = new double[n];
+        lat[0] = oLat;
+        lon[0] = oLon;
+        for (int i = 0; i < wps.size(); i++) {
+            lat[i + 1] = wps.get(i)[0];
+            lon[i + 1] = wps.get(i)[1];
+        }
+        return new double[][]{lat, lon};
+    }
+
+    private static boolean validCoord(double lat, double lon) {
+        return !Double.isNaN(lat) && !Double.isInfinite(lat)
+                && !Double.isNaN(lon) && !Double.isInfinite(lon)
+                && lat >= -90.0 && lat <= 90.0
+                && lon >= -180.0 && lon <= 180.0;
+    }
+
+    /** 确认回执：模块 App 收到后才把 UI 切成「运行中」 */
+    private static void sendAck(String session, String token, boolean ok, String reason) {
+        sendAck(session, token, ok, reason, OP_CONFIRM);
+    }
+
+    /** 进程内兜底取 Context：sCtx 未初始化时（例如 onCreate 早于 configure）用它发回执 */
+    private static android.content.Context ackContext() {
+        if (sCtx != null) return sCtx;
+        try {
+            // ActivityThread 是 @hide API：走反射，避免编译期依赖隐藏符号
+            Class<?> at = Class.forName("android.app.ActivityThread");
+            Object app = at.getMethod("currentApplication").invoke(null);
+            if (app instanceof android.content.Context) {
+                android.content.Context c = (android.content.Context) app;
+                android.content.Context appCtx = c.getApplicationContext();
+                sCtx = appCtx != null ? appCtx : c;
+            }
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": ack context fallback failed " + t);
+        }
+        return sCtx;
+    }
+
+    private static void sendAck(final String session, final String token, final boolean ok,
+                                final String reason, final String kind) {
+        final String k = kind == null ? OP_CONFIRM : kind;
+        // 关键路径：ResultReceiver（binder 回调）。失败才发一次广播兜底，不再重试、
+        // 不再走 Provider：该通道在 MIUI 上对跨应用调用不可用（原因未完全定位），重试只会拖慢确认。
+        if (fireResultReceiver(k, session, token, ok, reason)) return;
+        final android.content.Context ctx = ackContext();
+        if (ctx == null) {
+            XposedBridge.log(TAG + ": ack undelivered (no context, no receiver) op=" + k);
+            return;
+        }
+        try {
+            android.content.Intent i = new android.content.Intent(ACTION_ACK);
+            i.setPackage("com.mokrun.app");
+            i.setClassName("com.mokrun.app", "com.mokrun.app.AckReceiver");
+            i.putExtra("op", k);
+            i.putExtra("session", session == null ? "" : session);
+            i.putExtra("token", token == null ? "" : token);
+            i.putExtra("ok", ok);
+            i.putExtra("mode", sMode);
+            i.putExtra("at", System.currentTimeMillis());
+            if (reason != null) i.putExtra("reason", reason);
+            ctx.sendBroadcast(i);
+            XposedBridge.log(TAG + ": ack broadcast fallback op=" + k + " session=" + session);
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": ack broadcast failed " + t);
+        }
+    }
+
+    /** 只解析并应用参数（speed/cadence/stride/sat/qr/spdmax/rs/alt/acc），不碰路线与状态 */
+    private static void applyCfgParams(String cfg) {
         float sp = -1f, cd = -1f, st = -1f;
         int sat = -1;
         int qr = -1;
@@ -335,37 +930,51 @@ public final class MotionEngine {
                 }
             }
         }
-        if (sat > 0) sSat = sat;
-        if (qr >= 0) sQrStatus = qr;
-        if (spdmax > 0.1f) sSpeedMax = spdmax;
-        if (rs >= 0) sSuppressRealSteps = (rs == 1);
-        if (alt > 0f) sAlt = alt;
-        if (acc >= 0) sGpsAccStatus = acc;
-        applyOriginRoute(origin, waypoints);
+        if (sat > 0) sSat = inRange(sat, SAT_MIN, SAT_MAX) ? sat : sSat;
+        if (qr >= 0) sQrStatus = inRange(qr, QR_MIN, QR_MAX) ? qr : sQrStatus;
+        if (spdmax > 0.1f) sSpeedMax = inRange(spdmax, SPEED_MIN, SPEED_HARD_MAX) ? spdmax : sSpeedMax;
+        if (rs == 0 || rs == 1) sSuppressRealSteps = (rs == 1);
+        if (alt > ALT_MIN) sAlt = inRange(alt, ALT_MIN, ALT_MAX) ? alt : sAlt;
+        // acc<0 是「不伪装、保留真实值」的显式约定（见 SDKLocationHook），因此接受 -1
+        if (acc >= ACC_MIN) sGpsAccStatus = inRange(acc, ACC_MIN, ACC_MAX) ? acc : sGpsAccStatus;
         applyConfigInner(sp, cd, st);
-        sMode = run;
-        sIntentMode = true;
-        sRunCheckedAt = System.currentTimeMillis();
-        sConfigLoaded = true;
-        XposedBridge.log(TAG + ": applied from intent speed=" + sSpeed
-                + " cadence=" + sCadence + " stride=" + sStride
-                + " sat=" + sSat
-                + " mode=" + run + " points=" + sLat.length);
     }
 
     /** 只更新参数，不动路线（路线由 applyOriginRoute 负责） */
     private static void applyConfigInner(float speed, float cadence, float stride) {
-        if (speed > 0.1f) {
+        if (inRange(speed, SPEED_MIN, SPEED_HARD_MAX)) {
             float eff = speed;
-            if (speed > sSpeedMax) {
+            if (eff > sSpeedMax) {
                 eff = sSpeedMax;
                 XposedBridge.log(TAG + ": speed " + speed + " clamped to " + sSpeedMax
-                        + " (target drops points above ~3.0 m/s)");
+                        + " (target drops points above ~5.0 m/s)");
             }
             sSpeed = eff;
+        } else if (speed > 0f) {
+            // 默认值是 -1（未提供），只有显式提供的非法值才需要告警
+            XposedBridge.log(TAG + ": speed rejected (" + speed + ")");
         }
-        if (cadence > 0.1f) sCadence = cadence;
-        if (stride > 0.2f) sStride = stride;
+        if (inRange(cadence, CADENCE_MIN, CADENCE_MAX)) {
+            sCadence = cadence;
+        } else if (cadence > 0f) {
+            XposedBridge.log(TAG + ": cadence rejected (" + cadence + ")");
+        }
+        if (inRange(stride, STRIDE_MIN, STRIDE_MAX)) {
+            sStride = stride;
+        } else if (stride > 0f) {
+            XposedBridge.log(TAG + ": stride rejected (" + stride + ")");
+        }
+    }
+
+    /**
+     * 只有显式携带了 origin 或 route 才动路线。
+     *
+     * 参数为 null 表示「这次下发没有说话权」（例如只带 cfg 的 Intent），
+     * 空字符串才是「用户清空了路线」。混用会让一个只改速度的 Intent 把路线清掉。
+     */
+    private static void applyOriginRouteIfGiven(String origin, String waypoints) {
+        if (origin == null && waypoints == null) return;
+        applyOriginRoute(origin, waypoints);
     }
 
     /** 起点 + 途经点 → 路线数组；起点变了就重置到起点 */
@@ -404,7 +1013,7 @@ public final class MotionEngine {
         }
 
         if (!hasOrigin && wps.isEmpty()) {
-            XposedBridge.log(TAG + ": origin/route cleared");
+            clearRoute();
             return;
         }
 
@@ -432,11 +1041,35 @@ public final class MotionEngine {
         }
     }
 
+    /**
+     * 空配置 = 用户清空了路线。
+     * 必须把「有效路线」一起清掉：只更新去重用的 sLastOrigin/sLastRouteHash 会让
+     * sLat/sLon 保留上一次的坐标，hasRoute() 继续为 true，引擎接着在旧路线上跑。
+     */
+    private static void clearRoute() {
+        sLat = new double[0];
+        sLon = new double[0];
+        sRouteConfirmed = false;
+        sSeg = 0;
+        sSegProgress = 0;
+        sDir = 1;
+        resetCounters();
+        XposedBridge.log(TAG + ": origin/route cleared");
+    }
+
     private static void resetToStart() {
         sSeg = 0;
         sSegProgress = 0;
-        sCurLat = sLat[0];
-        sCurLon = sLon[0];
+        sDir = 1;
+        if (sLat.length > 0) {
+            sCurLat = sLat[0];
+            sCurLon = sLon[0];
+        }
+        resetCounters();
+    }
+
+    /** 里程/步数/计时归零；步数不能回退，把本场计入基数 */
+    private static void resetCounters() {
         sDistTotal = 0;
         // 步数不能回退：TYPE_STEP_COUNTER 的语义是「开机以来累计」，
         // 一旦变小就是很明显的伪造特征。所以本场清零时把基数累加过去。
@@ -470,38 +1103,22 @@ public final class MotionEngine {
         long now = System.currentTimeMillis();
         double dt = sLastTick == 0L ? TICK_MS / 1000.0 : (now - sLastTick) / 1000.0;
         sLastTick = now;
-        if (dt <= 0 || dt > 120.0) {
-            dt = TICK_MS / 1000.0;
-        }
+        if (dt <= 0) dt = TICK_MS / 1000.0;
+        // 有效运动时间：距离、位置推进与步数都只按这一个窗口计算。
+        // 超过 DT_MAX 的部分视为调度停摆，本 tick 不再补算（不做无条件补齐），
+        // 这样里程与步数在任何间隔下都保持同源。
+        double effDt = Math.min(dt, DT_MAX);
 
-        double stepDist = sSpeed * dt;
+        double stepDist = sSpeed * effDt;
         sDistTotal += stepDist;
-        sSegProgress += stepDist;
+        advanceAlongRoute(stepDist);
 
-        // 只有一个点（只有起点）时位置不动
-        if (sLat.length > 1) {
-            while (sSeg < sLat.length - 1) {
-                double segLen = dist(sLat[sSeg], sLon[sSeg], sLat[sSeg + 1], sLon[sSeg + 1]);
-                if (segLen < 0.01) {
-                    sSeg++;
-                    continue;
-                }
-                if (sSegProgress < segLen) {
-                    double f = sSegProgress / segLen;
-                    sCurLat = sLat[sSeg] + (sLat[sSeg + 1] - sLat[sSeg]) * f;
-                    sCurLon = sLon[sSeg] + (sLon[sSeg + 1] - sLon[sSeg]) * f;
-                    break;
-                }
-                sSegProgress -= segLen;
-                sSeg++;
-                if (sSeg >= sLat.length - 1) {
-                    sSeg = 0;
-                    sSegProgress = 0;
-                }
-            }
+        sStepAccum += sCadence * effDt;
+        if (Double.isNaN(sStepAccum) || sStepAccum < 0) sStepAccum = 0;
+        if (sStepAccum > STEP_MAX_PER_TICK) {
+            XposedBridge.log(TAG + ": step backlog dropped (" + sStepAccum + ")");
+            sStepAccum = STEP_MAX_PER_TICK;
         }
-
-        sStepAccum += sCadence * dt;
         while (sStepAccum >= 1.0) {
             sStepAccum -= 1.0;
             sSteps++;
@@ -525,15 +1142,80 @@ public final class MotionEngine {
         ArrayList<LocationListener> ls;
         synchronized (sListeners) {
             if (sListeners.isEmpty()) return;
-            ls = new ArrayList<LocationListener>(sListeners);
+            ls = new ArrayList<LocationListener>(sListeners.keySet());
         }
         for (int i = 0; i < ls.size(); i++) {
+            LocationListener l = ls.get(i);
             try {
-                ls.get(i).onLocationChanged(current());
+                l.onLocationChanged(current());
             } catch (Throwable t) {
                 XposedBridge.log(TAG + ": emit failed " + t);
             }
+            // 单次定位：无论回调是否抛异常，都只投递一次
+            boolean oneShot;
+            synchronized (sListeners) {
+                Boolean flag = sListeners.get(l);
+                oneShot = flag != null && flag.booleanValue();
+                if (oneShot) sListeners.remove(l);
+            }
+            if (oneShot) XposedBridge.log(TAG + ": single-shot location listener released");
         }
+    }
+
+    /**
+     * 沿折线推进 distance 米，到端点后折返。
+     *
+     * sSegProgress 是「当前段内、沿 sDir 方向已经走过的距离」：
+     *   sSeg 与 sSeg+sDir 构成本段，0 <= sSegProgress <= 该段长度。
+     * 原实现把末段的剩余距离直接丢弃并 sSeg = 0，等于从终点瞬移回起点
+     * （一次 tick 可移动上百米），而引擎里程只加了 1.2 米。
+     */
+    private static void advanceAlongRoute(double distance) {
+        int n = sLat.length;
+        // 长路线换短路线后，sSeg 可能已经超出新数组：先夹回来，避免越界
+        if (n <= 1) { sSeg = 0; sSegProgress = 0; return; }
+        // 只有真的越界才夹回起点；终点回弹时 sSeg 合法地等于 n-1
+        if (sSeg < 0 || sSeg > n - 1) {
+            sSeg = 0;
+            sSegProgress = 0;
+        }
+        if (n < 2 || distance <= 0) return;
+        double remaining = distance;
+        int guard = 0;
+        while (remaining > 1e-9 && guard++ < 4096) {
+            int other = sSeg + sDir;
+            if (other < 0 || other >= n) {
+                // 已经站在端点上：掉头，从同一端点重新出发
+                sDir = -sDir;
+                sSegProgress = 0;
+                continue;
+            }
+            double segLen = dist(sLat[sSeg], sLon[sSeg], sLat[other], sLon[other]);
+            if (segLen < 0.01) {
+                // 退化段（重复点）：直接跳过，避免除零
+                sSeg = other;
+                sSegProgress = 0;
+                continue;
+            }
+            double space = segLen - sSegProgress;
+            if (remaining < space) {
+                sSegProgress += remaining;
+                remaining = 0;
+                break;
+            }
+            remaining -= space;
+            sSeg = other;
+            sSegProgress = 0;
+        }
+
+        int other = sSeg + sDir;
+        if (other < 0 || other >= n) other = sSeg;
+        double segLen = dist(sLat[sSeg], sLon[sSeg], sLat[other], sLon[other]);
+        double f = segLen < 0.01 ? 0.0 : sSegProgress / segLen;
+        if (f < 0) f = 0;
+        if (f > 1) f = 1;
+        sCurLat = sLat[sSeg] + (sLat[other] - sLat[sSeg]) * f;
+        sCurLon = sLon[sSeg] + (sLon[other] - sLon[sSeg]) * f;
     }
 
     private static double dist(double lat1, double lon1, double lat2, double lon2) {

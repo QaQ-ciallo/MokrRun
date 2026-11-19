@@ -1,4 +1,4 @@
-﻿# 随心跑 (MokrRun) build script
+# 随心跑 (MokrRun) build script
 # aapt2 -> javac -> d8 -> assemble -> zipalign -> apksigner
 #
 # 需要的外部环境（可用环境变量覆盖）：
@@ -24,7 +24,8 @@ $tools = if ($env:MOKR_TOOLS) { $env:MOKR_TOOLS } else { Join-Path (Split-Path -
 $prev = if (Test-Path $verFile) { [int]((Get-Content $verFile -Raw).Trim()) } else { 0 }
 $verCode = $prev + 1
 $verName = "1.0.$verCode"
-$stamp   = (Get-Date).ToString("yyyyMMdd-HHmm")
+# 允许固定构建时间戳：复现/复验时用 MOKR_BUILD_STAMP=yyyyMMdd-HHmm 可得到逐字节一致的 DEX
+$stamp   = if ($env:MOKR_BUILD_STAMP) { $env:MOKR_BUILD_STAMP } else { (Get-Date).ToString("yyyyMMdd-HHmm") }
 Set-Content -Path $verFile -Value $verCode -Encoding ascii
 Write-Host ("version: $verName (code=$verCode)") -ForegroundColor Yellow
 

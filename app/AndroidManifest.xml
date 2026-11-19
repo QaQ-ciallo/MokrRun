@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.mokrun.app"
-    android:versionCode="115"
-    android:versionName="1.0.115">
+    android:versionCode="153"
+    android:versionName="1.0.153">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -58,9 +58,22 @@
             android:label="选择起点" />
 
         <activity
+            android:name=".DraftActivity"
+            android:exported="false"
+            android:label="本次路线配置" />
+
+        <activity
             android:name=".SettingsActivity"
             android:exported="false"
             android:label="设置" />
+
+        <receiver
+            android:name=".AckReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mokrun.app.ACK" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name=".data.ConfigProvider"

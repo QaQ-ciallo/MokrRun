@@ -1,0 +1,46 @@
+﻿=== [1] 127 控制入口独立验收（修复后） ===
+actual_float_pause_keeps_takeover PASS
+OBSERVED actual float pause: mode=2 confirmed=true override=true steps=3
+legacy_start_cannot_confirm_new_session PASS
+OBSERVED legacy start during PREPARED: mode=3 confirmed=false override=false
+0/2 independent cases failed
+
+=== [2] 127 控制入口 --baseline（对照 65f3478） ===
+actual_float_pause_keeps_takeover PASS
+OBSERVED actual float pause: mode=2 confirmed=true override=true steps=3
+legacy_start_cannot_confirm_new_session FAIL
+OBSERVED legacy start during PREPARED: mode=1 confirmed=true override=true
+Exception in thread "main" java.lang.AssertionError: legacy run=1 bypassed CONFIRM and activated old route in new session
+1/2 independent cases failed
+
+=== [3] 上轮 7 项 ===
+confirm_initial_position PASS
+OBSERVED just-confirmed position=30.0,120.0
+confirm_resets_segment PASS
+OBSERVED confirmed points=2 segment=0 progress=0.0
+new_token_restarts_run PASS
+OBSERVED second-token result=���λỰ��ȷ�ϲ������������ظ����������Ƚ������λỰ�� beforeSteps=3 afterSteps=3
+provider_reverts_confirmed_route PASS
+OBSERVED after provider poll routeStart=30.0 steps=3
+pause_reverts_confirmed_route PASS
+OBSERVED after pause routeStart=30.0 steps=3
+stale_freeze_changes_new_session PASS
+OBSERVED new confirmed session mode after old freeze=1
+rejected_confirm_ack PASS
+OBSERVED rejection ack count=1
+0/7 independent cases failed
+
+=== [4] 125 补充 3 项 ===
+empty_provider_after_first_confirm PASS
+OBSERVED first draft confirmed, then provider poll: active=true confirmed=true points=2
+stale_freeze_during_preparation PASS
+OBSERVED prepared mode after old timeout=3
+cfg_pause_during_preparation PASS
+OBSERVED unconfirmed cfg-pause: confirmed=false active=false
+0/3 independent cases failed
+
+=== [5] 地图契约 ===
+PASS actual home.html: locate centers current point; origin unchanged; duplicate click ignored; refresh preserves view
+OBSERVED actual map.html payload origin={"lat":30,"lon":120}
+PASS MapActivity.java: actual map origin field lon
+PASS MainActivity.java: actual map origin field lon

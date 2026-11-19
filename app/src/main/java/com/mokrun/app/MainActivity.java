@@ -5,6 +5,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -19,7 +22,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mokrun.app.data.ConfigSync;
+import com.mokrun.app.data.EnableFlow;
+import com.mokrun.app.data.LocateTracker;
 import com.mokrun.app.data.LocationHelper;
+import com.mokrun.app.data.RouteDraft;
 import com.mokrun.app.data.Store;
 
 import org.json.JSONArray;
@@ -32,6 +38,7 @@ public class MainActivity extends Activity {
 
     private WebView homeMap;
     private View pageHome;
+    private boolean mapCentered = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +67,13 @@ public class MainActivity extends Activity {
             }
         });
 
+        View btnEnable = pageHome.findViewById(R.id.btnEnable);
+        if (btnEnable != null) {
+            btnEnable.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { enableAndOpen(); }
+            });
+        }
+
         pageHome.findViewById(R.id.btnRoute).setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 if (Store.origin(MainActivity.this) == null) {
@@ -79,6 +93,148 @@ public class MainActivity extends Activity {
 
     }
 
+    /**
+     * 「启用并打开体适能」：建立一次预备会话（不要求有路线），然后打开目标应用。
+     * 目标进程在跑 → 显式广播；没在跑 → 拉起并由 onCreate 应用同一份配置。
+     */
+    private void enableAndOpen() {
+        String session = Store.newSessionId();
+        Store.setSessionId(this, session);
+        // 注意：这里不写 runMode=3。发送成功 ≠ 目标已接受，
+        // 「已启用」必须等目标进程按 session 回执。
+        final long now = System.currentTimeMillis();
+        if (!enableFlow.begin(session, now)) {
+            Toast.makeText(this, "正在启用中，请稍候…", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        registerEnableAck();
+        // 先把常驻前台服务拉起来：模块 App 一旦退到后台，系统会拒绝解析它的
+        // ContentProvider（No provider info ... providerRunning is false）并把广播排队，
+        // 回执就送不回来。进程保活是回执可达的前提。
+        FloatService.start(this);
+        ackProbeReceiver = new android.os.ResultReceiver(
+                new android.os.Handler(android.os.Looper.getMainLooper())) {
+            @Override protected void onReceiveResult(int resultCode, android.os.Bundle resultData) {
+                if (resultData == null) return;
+                android.util.Log.i("MokrRunAckProbe", "result op="
+                        + resultData.getString("op") + " session="
+                        + resultData.getString("session") + " ok="
+                        + resultData.getBoolean("ok", false) + " mode="
+                        + resultData.getInt("mode", -1));
+                handleEnableAck(new Intent(ConfigSync.ACK_ACTION)
+                        .putExtra("op", resultData.getString("op"))
+                        .putExtra("session", resultData.getString("session"))
+                        .putExtra("ok", resultData.getBoolean("ok", false))
+                        .putExtra("reason", resultData.getString("reason")));
+            }
+        };
+        boolean sent = ConfigSync.isTargetRunning(this)
+                ? ConfigSync.sendPrepare(this, session, ackProbeReceiver)
+                : ConfigSync.launchPrepared(this, session, ackProbeReceiver);
+        if (!sent) {
+            enableFlow.failSend("无法把启用请求送到体适能");
+            Toast.makeText(this, enableFlow.failure(), Toast.LENGTH_LONG).show();
+            refreshAll();
+            return;
+        }
+        Toast.makeText(this, "正在启用…", Toast.LENGTH_SHORT).show();
+        uiHandler.postDelayed(enableTimeout, EnableFlow.ACK_TIMEOUT_MS + 200L);
+    }
+
+    private final EnableFlow enableFlow = new EnableFlow();
+    private android.os.ResultReceiver ackProbeReceiver;
+    private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private BroadcastReceiver enableAckReceiver;
+
+    private final Runnable enableTimeout = new Runnable() {
+        @Override public void run() {
+            if (!enableFlow.checkTimeout(System.currentTimeMillis())) return;
+            Store.setRunMode(MainActivity.this, ConfigSync.MODE_OFF);
+            Toast.makeText(MainActivity.this, enableFlow.failure(), Toast.LENGTH_LONG).show();
+            refreshAll();
+        }
+    };
+
+    private void registerEnableAck() {
+        // 静态接收器（显式组件广播）是主通道；动态注册保留做兜底
+        AckReceiver.setListener(new AckReceiver.Listener() {
+            @Override public void onAck(Intent intent) { handleEnableAck(intent); }
+        });
+        if (enableAckReceiver != null) return;
+        enableAckReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                handleEnableAck(intent);
+            }
+        };
+        try {
+            IntentFilter f = new IntentFilter(ConfigSync.ACK_ACTION);
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(enableAckReceiver, f, Context.RECEIVER_EXPORTED);
+            } else {
+                registerReceiver(enableAckReceiver, f);
+            }
+        } catch (Throwable t) {
+            android.util.Log.e("MokrRun", "register enable ack failed", t);
+        }
+    }
+
+    private void handleEnableAck(Intent intent) {
+                if (intent == null) return;
+                String op = intent.getStringExtra("op");
+                if (!"prepare".equals(op)) return;      // 确认/清除的回执不在这里处理
+                String ackSession = intent.getStringExtra("session");
+                boolean ok = intent.getBooleanExtra("ok", false);
+                if (!enableFlow.onAck(ackSession, ok, intent.getStringExtra("reason"),
+                        System.currentTimeMillis())) {
+                    return;                              // 非本次 session 的回执
+                }
+                uiHandler.removeCallbacks(enableTimeout);
+                if (!ok) {
+                    Store.setRunMode(MainActivity.this, ConfigSync.MODE_OFF);
+                    Toast.makeText(MainActivity.this, enableFlow.failure(), Toast.LENGTH_LONG).show();
+                    refreshAll();
+                    return;
+                }
+                // 目标确实进入了 PREPARED：此时才记为已启用
+                Store.setRunMode(MainActivity.this, ConfigSync.MODE_PREPARED);
+                FloatService.start(MainActivity.this);
+                boolean nav = ConfigSync.bringTargetToFront(MainActivity.this);
+                enableFlow.recordNav(nav, nav ? "" : "打开体适能失败");
+                if (nav) {
+                    Toast.makeText(MainActivity.this,
+                            "已启用 · 目标应用显示真实位置，点悬浮窗「开始」配置路线",
+                            Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(MainActivity.this,
+                            "已启用，但打开体适能失败：请手动切到体适能", Toast.LENGTH_LONG).show();
+                }
+                refreshAll();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        uiHandler.removeCallbacks(enableTimeout);
+        AckReceiver.clearListener(null);
+        if (enableAckReceiver != null) {
+            try { unregisterReceiver(enableAckReceiver); } catch (Throwable ignored) {}
+            enableAckReceiver = null;
+        }
+    }
+
+    /** 从历史路线建立**草稿**（不改变正在运行的位置，也不立即生效） */
+    private void openDraftFromHistory(JSONObject r) {
+        try {
+            String draftOrigin = RouteDraft.originFromRouteJson(r);
+            if (draftOrigin != null) Store.setDraftOrigin(this, draftOrigin);
+            JSONArray pts = r.optJSONArray("points");
+            if (pts != null) Store.setDraftWaypointsJson(this, pts.toString());
+            Store.setDraftName(this, r.optString("name", ""));
+            startActivity(new Intent(this, DraftActivity.class));
+        } catch (Throwable t) {
+            Toast.makeText(this, "载入草稿失败：" + t, Toast.LENGTH_LONG).show();
+        }
+    }
     // ---- home map ----------------------------------------------------------
 
     private void setupHomeMap() {
@@ -96,25 +252,45 @@ public class MainActivity extends Activity {
         homeMap.loadUrl("file:///android_asset/home.html");
     }
 
-    private void renderMap() {
-        if (homeMap == null) return;
-        double[] o = Store.origin(this);
-        final double oLat = o == null ? 0.0 : o[0];
-        final double oLon = o == null ? 0.0 : o[1];
-        final String wpsJs = jsString(ConfigSync.waypointsJson(this));
+    /** 首次进入才居中；后续刷新只更新图层，不抢回用户正在拖动的视野 */
+    private void renderMap() { renderMap(!mapCentered); }
 
-        LocationHelper.requestOnce(this, new LocationHelper.Callback() {
-            @Override public void onLocation(double lat, double lon) {
-                pushMapData(oLat, oLon, wpsJs, lat, lon);
+    private void renderMap(boolean center) {
+        if (homeMap == null) return;
+        if (center) mapCentered = true;
+        double[] o = Store.origin(this);
+        double oLat = o == null ? 0.0 : o[0];
+        double oLon = o == null ? 0.0 : o[1];
+        String wpsJs = jsString(ConfigSync.waypointsJson(this));
+        // 缓存只用于「先显示」，不宣布定位完成，也不修改路线
+        double[] cache = LocationHelper.cachedWithAge(this);
+        double curLat = 0.0, curLon = 0.0;
+        if (cache != null && LocateTracker.cacheUsable((long) cache[3])) {
+            curLat = cache[0];
+            curLon = cache[1];
+        }
+        pushMapData(oLat, oLon, wpsJs, curLat, curLon, center);
+        // 没有任何可用位置时（首次进入、缓存过期），主动定位一次，
+        // 否则地图会停在 Leaflet 默认坐标（天安门），看起来像「定位到北京」。
+        if (curLat == 0.0 && curLon == 0.0 && center && o == null) {
+            doLocate();
+        }
+    }
+
+    private void pushMapData(final double oLat, final double oLon, final String wpsJs,
+                             final double curLat, final double curLon, final boolean center) {
+        if (homeMap == null) return;
+        final String js = String.format(Locale.US, "setData(%.7f,%.7f,%s,%.7f,%.7f,%s)",
+                oLat, oLon, wpsJs, curLat, curLon, center ? "true" : "false");
+        homeMap.post(new Runnable() {
+            @Override public void run() {
+                homeMap.evaluateJavascript(js, null);
             }
         });
     }
 
-    private void pushMapData(final double oLat, final double oLon,
-                             final String wpsJs, final double curLat, final double curLon) {
+    private void callJs(final String js) {
         if (homeMap == null) return;
-        final String js = String.format(Locale.US, "setData(%.7f,%.7f,%s,%.7f,%.7f)",
-                oLat, oLon, wpsJs, curLat, curLon);
         homeMap.post(new Runnable() {
             @Override public void run() {
                 homeMap.evaluateJavascript(js, null);
@@ -126,12 +302,20 @@ public class MainActivity extends Activity {
         return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'";
     }
 
-    /** JS 调原生：重新定位 */
+    /** JS 调原生：定位按钮 / 打开起点编辑 */
     class HomeBridge {
         @JavascriptInterface
         public void requestLocation() {
             runOnUiThread(new Runnable() {
-                @Override public void run() { renderMap(); }
+                @Override public void run() { renderMap(false); }
+            });
+        }
+
+        /** 「定位当前位置」：请求新鲜定位，只居中当前位置，不改路线起点 */
+        @JavascriptInterface
+        public void locateCurrent() {
+            runOnUiThread(new Runnable() {
+                @Override public void run() { doLocate(); }
             });
         }
 
@@ -139,6 +323,33 @@ public class MainActivity extends Activity {
         public void openOrigin() {
             startActivity(new Intent(MainActivity.this, OriginActivity.class));
         }
+    }
+
+    private final LocateTracker locateTracker = new LocateTracker();
+
+    private void doLocate() {
+        LocationHelper.requestFresh(this, locateTracker, new LocationHelper.FreshCallback() {
+            @Override public void onPreview(double lat, double lon, float accuracy, long ageMs) {
+                callJs(String.format(Locale.US,
+                        "onLocatePreview(%.7f,%.7f,%.1f,'%d 秒')",
+                        lat, lon, accuracy, Math.max(0L, ageMs / 1000)));
+            }
+
+            @Override public void onFresh(double lat, double lon, float accuracy,
+                                         long ageMs, boolean fromCache) {
+                String note = fromCache
+                        ? String.format(Locale.US, "使用 %d 秒前的位置（精度 %.0f m）",
+                                Math.max(0L, ageMs / 1000), accuracy)
+                        : String.format(Locale.US, "精度 %.0f m", accuracy);
+                callJs(String.format(Locale.US,
+                        "onLocateResult('%.7f','%.7f','%.1f','%s')",
+                        lat, lon, accuracy, note.replace("'", " ")));
+            }
+
+            @Override public void onError(String message) {
+                callJs("onLocateResult('','','','" + message.replace("'", " ") + "')");
+            }
+        });
     }
 
 
@@ -208,14 +419,18 @@ public class MainActivity extends Activity {
         double[] origin = Store.origin(this);
         boolean hasRoute = Store.activeRoute(this) != null;
 
-        if (mode == 1) {
+        if (mode == ConfigSync.MODE_PREPARED) {
+            st.setText("已启用 · 待配置");
+            st.setTextColor(getColor(R.color.primary));
+            hint.setText("目标应用显示真实位置 · 点悬浮窗「开始」配置并确认路线");
+        } else if (mode == ConfigSync.MODE_RUNNING) {
             st.setText("运行中");
             st.setTextColor(getColor(R.color.ok));
-            hint.setText("位置与步数同步推进 · 悬浮窗可调速/暂停/结束");
-        } else if (mode == 2) {
-            st.setText("就绪 · 已暂停");
+            hint.setText("位置与步数同步推进 · 悬浮窗可暂停/结束");
+        } else if (mode == ConfigSync.MODE_PAUSED) {
+            st.setText("已暂停");
             st.setTextColor(getColor(R.color.primary));
-            hint.setText(hasRoute ? "点悬浮窗「开始」后按路线跑" : "位置冻结在起点，去画路线");
+            hint.setText("位置冻结在暂停点 · 悬浮窗可继续或结束");
         } else {
             st.setText("未开始");
             st.setTextColor(getColor(R.color.text_primary));
@@ -295,14 +510,9 @@ public class MainActivity extends Activity {
 
         row.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                Store.setActiveIndex(MainActivity.this, index);
-                Store.syncOriginFromActive(MainActivity.this);
-                ConfigSync.push(MainActivity.this);
-                ConfigSync.setMode(MainActivity.this, 2);
-                FloatService.start(MainActivity.this);
-                Toast.makeText(MainActivity.this,
-                        "已载入该路线 · 点悬浮窗「开始」", Toast.LENGTH_SHORT).show();
-                refreshAll();
+                // 选中历史路线 = 建立草稿，不立即改变目标应用的位置；
+                // 真正生效要等配置界面的「确认路线并开始」。
+                openDraftFromHistory(r);
             }
         });
         row.setOnLongClickListener(new View.OnLongClickListener() {

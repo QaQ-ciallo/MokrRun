@@ -45,9 +45,10 @@ public class FloatService extends Service {
     private LinearLayout btnToggle;
     private TextView btnToggleText;
 
-    private boolean running = false;
-    /** 是否已经把配置通过 Intent 送进目标进程 */
-    private boolean configPushed = false;
+    /** 当前会话模式（0 OFF / 1 RUNNING / 2 PAUSED / 3 PREPARED），以模块 prefs 为准 */
+    private int mode = ConfigSync.MODE_OFF;
+    /** 目标进程回执里的 token（只用于展示「已确认」与失败提示） */
+    private String lastAck = "";
 
     private final Handler handler = new Handler();
     private final Runnable ticker = new Runnable() {
@@ -192,17 +193,21 @@ public class FloatService extends Service {
     /** 只刷新状态：颜色 + 文字 */
     private void refresh() {
         if (tvState == null) return;
+        mode = ConfigSync.getMode(this);
         final String text;
         final int color;
-        if (running) {
+        if (mode == ConfigSync.MODE_RUNNING) {
             text = "运行中";
             color = 0xFF34C759;              // 绿
-        } else if (configPushed) {
+        } else if (mode == ConfigSync.MODE_PAUSED) {
             text = "已暂停";
             color = 0xFFFF9F0A;              // 橙
-        } else {
-            text = "就绪 · 待开始";
+        } else if (mode == ConfigSync.MODE_PREPARED) {
+            text = "待配置";
             color = 0xFF3482FF;              // 蓝
+        } else {
+            text = "未启用";
+            color = 0xFF8E8E93;              // 灰
         }
         tvState.setText(text);
         tvState.setTextColor(color);
@@ -214,30 +219,60 @@ public class FloatService extends Service {
             dot.setBackground(g);
         }
         if (btnToggleText != null) {
-            btnToggleText.setText(running ? "暂停" : (configPushed ? "继续" : "开始"));
+            if (mode == ConfigSync.MODE_RUNNING) btnToggleText.setText("暂停");
+            else if (mode == ConfigSync.MODE_PAUSED) btnToggleText.setText("继续");
+            else if (mode == ConfigSync.MODE_PREPARED) btnToggleText.setText("开始");
+            else btnToggleText.setText("启用");
         }
         if (btnToggle != null) {
-            btnToggle.setBackgroundColor(running ? 0xFFB54708 : 0xFF3482FF);
+            btnToggle.setBackgroundColor(mode == ConfigSync.MODE_RUNNING
+                    ? 0xFFB54708 : 0xFF3482FF);
         }
     }
 
     class ToggleClick implements View.OnClickListener {
         @Override public void onClick(View v) {
-            running = !running;
-            if (running) {
-                Store.setRunMode(FloatService.this, 1);
-                // 第一次开始要把配置送进目标进程；之后的继续只发命令
-                if (!configPushed) {
-                    launchTargetWithConfig();
-                    configPushed = true;
-                } else {
-                    sendCommand(1);
-                }
-            } else {
-                Store.setRunMode(FloatService.this, 2);
-                sendCommand(2);
+            mode = ConfigSync.getMode(FloatService.this);
+            if (mode == ConfigSync.MODE_RUNNING) {
+                // 暂停：位置冻结在当前模拟点，不补算
+                Store.setRunMode(FloatService.this, ConfigSync.MODE_PAUSED);
+                sendCommand(ConfigSync.MODE_PAUSED);
+                refresh();
+                return;
             }
-            refresh();
+            if (mode == ConfigSync.MODE_PAUSED) {
+                // 继续：沿用原语义，不重新编辑路线
+                Store.setRunMode(FloatService.this, ConfigSync.MODE_RUNNING);
+                sendCommand(ConfigSync.MODE_RUNNING);
+                refresh();
+                return;
+            }
+            if (mode == ConfigSync.MODE_PREPARED) {
+                // 预备态「开始」只打开配置界面，不启动运动
+                openDraftEditor();
+                return;
+            }
+            // 未启用：回到模块首页去「启用并打开体适能」
+            try {
+                Intent i = new Intent(FloatService.this, MainActivity.class);
+                i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+            } catch (Throwable t) {
+                Toast.makeText(FloatService.this, "打开模块首页失败：" + t,
+                        Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    /** 从悬浮窗打开本次路线配置界面；被系统限制时给出明确反馈，不切状态 */
+    private void openDraftEditor() {
+        try {
+            Intent i = new Intent(FloatService.this, DraftActivity.class);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            i.putExtra(DraftActivity.EXTRA_SESSION, Store.sessionId(this));
+            startActivity(i);
+        } catch (Throwable t) {
+            Toast.makeText(this, "无法打开配置界面：" + t, Toast.LENGTH_LONG).show();
         }
     }
 
@@ -251,9 +286,8 @@ public class FloatService extends Service {
             // （日志：No provider info ... when providerRunning is false），
             // 广播是一次性直投，没有这个问题，所以把它做成配置的第二通道。
             i.putExtra("cfg", ConfigSync.buildLine(this));
-            double[] o = Store.origin(this);
-            i.putExtra("origin", o == null ? "" : (o[0] + "," + o[1]));
-            i.putExtra("route", ConfigSync.waypointsJson(this));
+            // 暂停/继续/结束只改状态，绝不带起点与路线：
+            // 带了就会被当作一次「新配置」，把已确认的路线换回 prefs 里的旧路线并清零进度。
             sendBroadcast(i);
             android.util.Log.i("MokrRunFloat", "command sent mode=" + mode);
         } catch (Throwable t) {
@@ -289,10 +323,11 @@ public class FloatService extends Service {
     /** 结束：交还真实定位并关闭面板 */
     class StopClick implements View.OnClickListener {
         @Override public void onClick(View v) {
-            running = false;
             try {
-                Store.setRunMode(FloatService.this, 0);
-                sendCommand(0);
+                // 结束 = 终止会话：目标进程会清掉确认标识，迟到确认与旧超时都不能重开
+                Store.setRunMode(FloatService.this, ConfigSync.MODE_OFF);
+                Store.setSessionId(FloatService.this, "");
+                sendCommand(ConfigSync.MODE_OFF);
             } catch (Throwable ignored) {}
             stopSelf();
         }

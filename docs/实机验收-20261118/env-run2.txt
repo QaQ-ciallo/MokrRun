@@ -1,0 +1,49 @@
+# 第二轮实机测试环境记录（2026-11-18）
+
+## 测试组合（固定，本轮不做任何变更）
+
+| 项 | 值 |
+|---|---|
+| 模块 | com.mokrun.app **1.0.120**（lastUpdateTime 2026-11-18 07:08:13；APK SHA-256 `A910E627E63685C9423D5B0A7C8C4C26C0E09CAAFB0B3CEE395BD65A58715DE9`） |
+| 目标应用 | com.bxkj.student **2.0.26**（lastUpdateTime 2026-11-17 11:25:05） |
+| 外部模块 | com.pansoul.fucktsn **2.0.18**（本轮**开启**，已注入目标进程） |
+| 其它已注入模块 | com.dsh.tsnaudit（TSN-AUDIT-SYNTH，在目标进程内持续输出规则行） |
+| 已安装但未观察到注入 | org.frknkrc44.hma_oss（HMA-OSS） |
+| 设备 | 1e3f46a0 / 24129PN74C / Android 16 (API 36) / BP2A.250605.031.A3 |
+| 设备设置 | development_settings_enabled=1，adb_enabled=1，secure mock_location=0，`com.cxorz.anywhere` MOCK_LOCATION=allow（**本轮不改**） |
+
+## 注入证据（07:30:25，目标进程 pid 23400）
+
+```
+MokrRun: Application attached, installing hooks
+MokrRun: system location callbacks suppressed via android.location.LocationManager$LocationListenerTransport
+FuckTSN: [拦截] Root文件检测: /data/local/su -> 返回false
+FuckTSN: [拦截] SharedPreferences读取agreement -> 返回true
+FuckTSN-Sign [Token响应] 检测到登录账号: 2025103011130
+TSN-AUDIT-SYNTH CACHE_RULES {"currentUserFiltered":true,"usedExistingOpenHandle":true,"rowCount":3}
+MokrRun: attached to com.bxkj.student process=com.bxkj.student:pushcore main=false
+```
+
+## 运行参数（provider，启动前）
+
+```
+speed=4.8  cadence=3.1200001  stride=1.5384616  anti=1
+origin=23.0674281,113.9735359
+route=22 个途经点，总长约 3526.9 m（4.8 m/s 约 12.2 min/圈）
+run=2（就绪，未开始）
+```
+
+## 采集设施
+
+| 项 | 值 |
+|---|---|
+| 全量日志 | `C:\mokrlogs\logcat-full.txt`（`adb logcat -v threadtime` 持续重定向，未清空，避免环形缓冲覆盖） |
+| 分钟采样 | `docs/实机验收-20261118/samples-run2.txt` + `shots/`（60 s 间隔，从 07:30:5x 起 25 分钟） |
+| 第一轮（被拦截）证据 | `evidence-01-antimock-gate.txt`、`samples-run1-aborted.txt`、`shots-run1/` |
+
+## 已知前置结论（不计入本轮通过项）
+
+- **关闭 FuckTSN 时**目标应用弹出「系统检查到疑似模拟定位…请卸载虚拟定位软件并关闭开发者选项后再试」，
+  模块当时 `mode=0`、未接管定位；开启 FuckTSN 后该弹窗不再出现。
+  该现象作为**兼容性/外部模块依赖**问题单独归档，**不认定已解决**，也不作为本模块功能通过的证据。
+- 由此，本报告的通过项只在「MokrRun 1.0.120 + FuckTSN 开启」这一组合内成立。

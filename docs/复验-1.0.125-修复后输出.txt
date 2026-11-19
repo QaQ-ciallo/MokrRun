@@ -1,0 +1,31 @@
+﻿=== [1] 预备流程独立验收（上轮 7 项） ===
+confirm_initial_position PASS
+OBSERVED just-confirmed position=30.0,120.0
+confirm_resets_segment PASS
+OBSERVED confirmed points=2 segment=0 progress=0.0
+new_token_restarts_run PASS
+OBSERVED second-token result=���λỰ��ȷ�ϲ������������ظ����������Ƚ������λỰ�� beforeSteps=3 afterSteps=3
+provider_reverts_confirmed_route PASS
+OBSERVED after provider poll routeStart=30.0 steps=3
+pause_reverts_confirmed_route PASS
+OBSERVED after pause routeStart=30.0 steps=3
+stale_freeze_changes_new_session PASS
+OBSERVED new confirmed session mode after old freeze=1
+rejected_confirm_ack PASS
+OBSERVED rejection ack count=1
+0/7 independent cases failed
+
+=== [2] 本轮 125 补充验收（3 项） ===
+empty_provider_after_first_confirm PASS
+OBSERVED first draft confirmed, then provider poll: active=true confirmed=true points=2
+stale_freeze_during_preparation PASS
+OBSERVED prepared mode after old timeout=3
+cfg_pause_during_preparation PASS
+OBSERVED unconfirmed cfg-pause: confirmed=false active=false
+0/3 independent cases failed
+
+=== [3] 地图 125 补充验收 ===
+PASS actual home.html: locate centers current point; origin unchanged; duplicate click ignored; refresh preserves view
+OBSERVED actual map.html payload origin={"lat":30,"lon":120}
+PASS MapActivity.java: actual map origin field lon
+PASS MainActivity.java: actual map origin field lon

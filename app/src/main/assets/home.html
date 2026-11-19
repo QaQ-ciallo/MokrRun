@@ -13,16 +13,23 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 18px; color: #3482ff; cursor: pointer; user-select: none;
   }
+  .locate-btn.busy { color: #98a2b3; }
   .hint {
     position: absolute; left: 10px; top: 10px; z-index: 500;
     background: rgba(0,0,0,.55); color: #fff; font-size: 11px;
     padding: 4px 8px; border-radius: 10px;
+  }
+  .status {
+    position: absolute; left: 10px; bottom: 10px; z-index: 500;
+    max-width: 62%; background: rgba(0,0,0,.62); color: #fff; font-size: 11px;
+    padding: 4px 8px; border-radius: 10px; display: none;
   }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <div class="hint" id="hint">未设置起点</div>
+<div class="status" id="status"></div>
 <div class="locate-btn" id="locate">◎</div>
 
 <script src="leaflet.js"></script>
@@ -34,47 +41,68 @@ L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scal
   subdomains: ['1','2','3','4'], maxZoom: 19, minZoom: 3
 }).addTo(map);
 
-var originMarker = null;
-var pointMarker = null;
-var line = null;
-var anchor = null;      // 定位/居中用的坐标
-var wps = [];           // 途经点
+/* 三份数据彼此独立：
+ *   routeOrigin   —— 已保存的路线起点（只由 setData 更新，定位按钮永不修改它）
+ *   currentLocation —— 最近一次「新鲜」定位（定位按钮的结果）
+ *   wps           —— 已保存路线的途经点
+ * 地图视野由用户拖动决定，数据刷新不再把视野抢回去。 */
+var routeOrigin = null;
+var currentLocation = null;
+var currentAccuracy = 0;
+var wps = [];
+var locating = false;
 
-function clearLayers() {
+var originMarker = null;
+var currentMarker = null;
+var line = null;
+
+function clearRouteLayers() {
   if (originMarker) { map.removeLayer(originMarker); originMarker = null; }
-  if (pointMarker)  { map.removeLayer(pointMarker);  pointMarker = null; }
-  if (line)         { map.removeLayer(line);         line = null; }
+  if (line) { map.removeLayer(line); line = null; }
 }
 
-function draw(origin, points) {
-  clearLayers();
+function showStatus(text) {
+  var el = document.getElementById('status');
+  if (!text) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.textContent = text;
+  el.style.display = 'block';
+}
+
+function drawRoute() {
+  clearRouteLayers();
   var all = [];
-  if (origin) {
-    originMarker = L.circleMarker([origin[0], origin[1]], {
+  if (routeOrigin) {
+    originMarker = L.circleMarker([routeOrigin[0], routeOrigin[1]], {
       radius: 8, color: '#fff', weight: 3, fillColor: '#12B76A', fillOpacity: 1
     }).addTo(map);
-    all.push([origin[0], origin[1]]);
+    all.push([routeOrigin[0], routeOrigin[1]]);
   }
-  for (var i = 0; i < points.length; i++) {
-    all.push([points[i][0], points[i][1]]);
-  }
+  for (var i = 0; i < wps.length; i++) all.push([wps[i][0], wps[i][1]]);
   if (all.length > 1) {
     line = L.polyline(all, { color: '#3482ff', weight: 4, opacity: .9 }).addTo(map);
   }
-  if (origin) {
-    anchor = [origin[0], origin[1]];
-    document.getElementById('hint').textContent = points.length
-      ? ('起点 + ' + points.length + ' 个途经点')
+  if (routeOrigin) {
+    document.getElementById('hint').textContent = wps.length
+      ? ('起点 + ' + wps.length + ' 个途经点')
       : '已设起点，还没画路线';
   } else {
     document.getElementById('hint').textContent = '未设置起点';
   }
 }
 
-/* 由原生调用 */
-window.setData = function (originLat, originLon, wpsJson, curLat, curLon) {
-  var origin = null;
-  if (originLat !== 0 && originLon !== 0) origin = [originLat, originLon];
+function drawCurrent(lat, lon, accuracy) {
+  currentLocation = [lat, lon];
+  currentAccuracy = accuracy || 0;
+  if (currentMarker) map.removeLayer(currentMarker);
+  var radius = Math.max(6, Math.min(60, accuracy || 8));
+  currentMarker = L.circleMarker([lat, lon], {
+    radius: radius, color: '#3482ff', weight: 2, fillColor: '#3482ff', fillOpacity: .18
+  }).addTo(map);
+}
+
+/* 原生回灌：只更新数据，是否居中由 center 参数决定（首次进入才居中） */
+window.setData = function (originLat, originLon, wpsJson, curLat, curLon, center) {
+  routeOrigin = (originLat !== 0 && originLon !== 0) ? [originLat, originLon] : null;
   wps = [];
   if (wpsJson && wpsJson.length > 2) {
     try {
@@ -82,17 +110,47 @@ window.setData = function (originLat, originLon, wpsJson, curLat, curLon) {
       for (var i = 0; i < arr.length; i++) wps.push([arr[i].lat, arr[i].lng]);
     } catch (e) {}
   }
-  draw(origin, wps);
-  if (!anchor && curLat && curLon) anchor = [curLat, curLon];
-  if (anchor) map.setView(anchor, 17);
+  drawRoute();
+  if (curLat && curLon) drawCurrent(curLat, curLon, currentAccuracy);
+  if (center) {
+    var target = routeOrigin || (curLat && curLon ? [curLat, curLon] : null);
+    if (target) map.setView(target, 17);
+  }
 };
 
+/* 定位按钮：请求新鲜定位 → 只居中「当前位置」，不改路线起点、不动已画路线 */
 document.getElementById('locate').onclick = function () {
-  // 让原生重新取一次定位，再回灌给地图
-  if (window.Native && Native.requestLocation) {
-    Native.requestLocation();
+  if (locating) { showStatus('正在定位…'); return; }
+  if (!(window.Native && Native.locateCurrent)) {
+    showStatus('当前环境不支持定位');
+    return;
   }
-  if (anchor) map.setView(anchor, 17);
+  locating = true;
+  var btn = document.getElementById('locate');
+  btn.classList.add('busy');
+  showStatus('正在定位…');
+  try { Native.locateCurrent(); } catch (e) { onLocateResult('', '', '', '定位请求失败'); }
+};
+
+window.onLocatePreview = function (lat, lon, accuracy, ageText) {
+  if (!locating) return;
+  drawCurrent(lat, lon, accuracy);
+  map.setView([lat, lon], 17);
+  showStatus('先显示 ' + ageText + ' 前的位置，正在获取最新定位…');
+};
+
+window.onLocateResult = function (latText, lonText, accuracyText, message) {
+  locating = false;
+  var btn = document.getElementById('locate');
+  btn.classList.remove('busy');
+  var lat = parseFloat(latText), lon = parseFloat(lonText), acc = parseFloat(accuracyText);
+  if (!isNaN(lat) && !isNaN(lon)) {
+    drawCurrent(lat, lon, isNaN(acc) ? 0 : acc);
+    map.setView([lat, lon], 17);      // 只居中当前位置
+    showStatus('当前位置已更新' + (message ? '：' + message : ''));
+  } else {
+    showStatus(message || '定位失败，请重试');
+  }
 };
 </script>
 </body>
