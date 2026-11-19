@@ -168,7 +168,8 @@ import java.util.*;
 public class Handler {
     public static long clock = 0L;
     static final class Task { long due; Runnable runnable; }
-    private final List<Task> tasks=new ArrayList<Task>();
+    // 与真机一致：主线程 Handler 共享同一条消息队列，虚拟时钟下也共用一个任务表
+    private static final List<Task> tasks=new ArrayList<Task>();
     public Handler() {}
     public Handler(Looper looper) {}
     public boolean post(Runnable r) { return postDelayed(r, 0L); }
@@ -176,6 +177,7 @@ public class Handler {
         Task t=new Task(); t.due=clock+ms; t.runnable=r; tasks.add(t); return true;
     }
     public void removeCallbacksAndMessages(Object token) { tasks.clear(); }
+    public void removeCallbacks(Runnable r) { tasks.removeIf(x -> x.runnable == r); }
     public static void resetClock() { clock=0L; }
     public int pending() { return tasks.size(); }
     /** 执行此刻已经到期的任务（新投递的任务不会在本轮执行，避免自旋） */
@@ -356,11 +358,25 @@ public interface SensorEventListener {
 }
 """,
     # ---- android.location -------------------------------------------------
+    "android/util/Log.java": """
+package android.util;
+public class Log {
+    public static int i(String t, String m) { return 0; }
+    public static int w(String t, String m) { return 0; }
+    public static int e(String t, String m) { return 0; }
+    public static int e(String t, String m, Throwable x) { return 0; }
+    public static int d(String t, String m) { return 0; }
+}
+""",
     "android/location/Location.java": """
 package android.location;
 public class Location {
     double lat, lon; float speed; float accuracy; double altitude; long time; long elapsed;
-    public Location(String provider) {}
+    String provider="gps";
+    public Location(String provider) { this.provider=provider; }
+    public Location(Location o) { lat=o.lat; lon=o.lon; speed=o.speed; accuracy=o.accuracy;
+        altitude=o.altitude; time=o.time; elapsed=o.elapsed; provider=o.provider; }
+    public String getProvider() { return provider; }
     public void setLatitude(double v) { lat=v; } public double getLatitude() { return lat; }
     public void setLongitude(double v) { lon=v; } public double getLongitude() { return lon; }
     public void setSpeed(float v) { speed=v; } public float getSpeed() { return speed; }
@@ -372,7 +388,14 @@ public class Location {
 }
 """,
     "android/location/LocationListener.java": """
-package android.location; public interface LocationListener { void onLocationChanged(Location l); }
+package android.location;
+/** 与设备接口一致：旧 API 的三个回调也要存在（默认方法，实现类可不覆写） */
+public interface LocationListener {
+    void onLocationChanged(Location l);
+    default void onStatusChanged(String provider, int status, android.os.Bundle extras) {}
+    default void onProviderEnabled(String provider) {}
+    default void onProviderDisabled(String provider) {}
+}
 """,
     "android/location/LocationManager.java": """
 package android.location;

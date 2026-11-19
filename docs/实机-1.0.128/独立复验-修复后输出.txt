@@ -1,0 +1,151 @@
+﻿=== 150 取消确认 ===
+python : C:\Users\Hen\Desktop\�ֻ�\MokrRun\build\mokr-jvm-iemyaa90\android\os\Handler.java:20: ����: ������ Handler�ж���
+�˷��� removeCallbacks(Runnable)
+所在位置 行:5 字符: 1
++ python "MokrRun-150取消确认独立验收.py" 2>&1 | Out-File $out -Encoding UTF8 - ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\Hen\De...backs(Runnable):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    public void removeCallbacks(Runnable r) { tasks.removeIf(x -> x.runnable == r); }
+                ^
+C:\Users\Hen\Desktop\�ֻ�\MokrRun\build\mokr-jvm-iemyaa90\com\mokrun\app\DraftActivity.java:241: ����: �Ҳ�������
+        if (isFinishing() || isDestroyed()) return true;
+            ^
+  ����:   ���� isFinishing()
+  λ��: �� DraftActivity
+C:\Users\Hen\Desktop\�ֻ�\MokrRun\build\mokr-jvm-iemyaa90\com\mokrun\app\DraftActivity.java:241: ����: �Ҳ�������
+        if (isFinishing() || isDestroyed()) return true;
+                             ^
+  ����:   ���� isDestroyed()
+  λ��: �� DraftActivity
+3 ������
+Traceback (most recent call last):
+  File "C:\Users\Hen\Desktop\手机\MokrRun-150取消确认独立验收.py", line 103, in <module>
+    base=jvm_fakes.build(jdk,{'com/mokrun/app/CancelAcceptance.java':harness},
+                        ['data.LocationHelper','data.LocateTracker','data.RouteDraft'],overrides=overrides)
+  File "C:\Users\Hen\Desktop\手机\MokrRun\tests\jvm_fakes.py", line 642, in build
+    subprocess.run([javac, "--release", "8", "-nowarn", "-encoding", "UTF-8",
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "-d", str(base), *fakes, *prod], check=True)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Hen\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 577, in run
+    raise CalledProcessError(retcode, process.args,
+                             output=stdout, stderr=stderr)
+subprocess.CalledProcessError: Command '['C:\\mokrtools\\jdk\\jdk-21.0.13+9\\bin\\javac.exe', '--release', '8', '-nowar
+n', '-encoding', 'UTF-8', '-d', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90', 'C:\\Users\\Hen\\Desk
+top\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\de\\robv\\android\\xposed\\XC_MethodHook.java', 'C:\\Users\\Hen\\Desktop\\手
+机\\MokrRun\\build\\mokr-jvm-iemyaa90\\de\\robv\\android\\xposed\\XposedBridge.java', 'C:\\Users\\Hen\\Desktop\\手机\\Mokr
+Run\\build\\mokr-jvm-iemyaa90\\de\\robv\\android\\xposed\\XposedHelpers.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\b
+uild\\mokr-jvm-iemyaa90\\android\\os\\Looper.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\an
+droid\\os\\Handler.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\os\\Parcelable.java
+', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\os\\ResultReceiver.java', 'C:\\Users\\Hen\
+\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\os\\Bundle.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\buil
+d\\mokr-jvm-iemyaa90\\android\\os\\CancellationSignal.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iem
+yaa90\\android\\app\\PendingIntent.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\app
+\\Dialog.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\app\\Activity.java', 'C:\\Use
+rs\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\net\\Uri.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun
+\\build\\mokr-jvm-iemyaa90\\android\\database\\Cursor.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iem
+yaa90\\android\\content\\ContentResolver.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\androi
+d\\content\\BroadcastReceiver.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\content\
+\IntentFilter.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\os\\Build.java', 'C:\\Us
+ers\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\content\\Context.java', 'C:\\Users\\Hen\\Desktop\\手机
+\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\content\\Intent.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr
+-jvm-iemyaa90\\android\\hardware\\Sensor.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\androi
+d\\hardware\\SensorEvent.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\hardware\\Sen
+sorEventListener.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\util\\Log.java', 'C:\
+\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\location\\Location.java', 'C:\\Users\\Hen\\Deskto
+p\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\location\\LocationListener.java', 'C:\\Users\\Hen\\Desktop\\手机\\Mokr
+Run\\build\\mokr-jvm-iemyaa90\\android\\location\\LocationManager.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\
+mokr-jvm-iemyaa90\\android\\os\\IRemoteCallback.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\
+\android\\os\\RemoteCallbackProxyFixture.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\androi
+d\\location\\LocationManager$LocationListenerTransport.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-ie
+myaa90\\android\\location\\LocationManager$ListenerTransport.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-
+jvm-iemyaa90\\android\\location\\GnssStatus.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\and
+roid\\view\\View.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\view\\ViewGroup.java'
+, 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\view\\Window.java', 'C:\\Users\\Hen\\Deskto
+p\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\widget\\TextView.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build
+\\mokr-jvm-iemyaa90\\android\\widget\\PopupWindow.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa9
+0\\android\\widget\\Toast.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\org\\json\\JSONObject
+.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\org\\json\\JSONArray.java', 'C:\\Users\\Hen\\D
+esktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\com\\mokrun\\app\\xposed\\SDKLocationHook.java', 'C:\\Users\\Hen\\Deskto
+p\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\Manifest.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-j
+vm-iemyaa90\\android\\content\\pm\\PackageManager.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa9
+0\\com\\mokrun\\app\\DraftActivity.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\con
+tent\\res\\Resources.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\util\\DisplayMetr
+ics.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\util\\TypedValue.java', 'C:\\Users
+\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\view\\Gravity.java', 'C:\\Users\\Hen\\Desktop\\手机\\Mokr
+Run\\build\\mokr-jvm-iemyaa90\\android\\graphics\\Typeface.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jv
+m-iemyaa90\\android\\widget\\Button.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\wi
+dget\\LinearLayout.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\android\\widget\\ScrollView.
+java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\com\\mokrun\\app\\OriginActivity.java', 'C:\\Us
+ers\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\com\\mokrun\\app\\MapActivity.java', 'C:\\Users\\Hen\\Desktop
+\\手机\\MokrRun\\build\\mokr-jvm-iemyaa90\\com\\mokrun\\app\\AckReceiver.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\bu
+ild\\mokr-jvm-iemyaa90\\com\\mokrun\\app\\data\\Store.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\build\\mokr-jvm-iem
+yaa90\\com\\mokrun\\app\\data\\ConfigSync.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\app\\src\\main\\java\\com\\mokr
+un\\app\\data\\LocationHelper.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\app\\src\\main\\java\\com\\mokrun\\app\\dat
+a\\LocateTracker.java', 'C:\\Users\\Hen\\Desktop\\手机\\MokrRun\\app\\src\\main\\java\\com\\mokrun\\app\\data\\RouteDraft
+.java']' returned non-zero exit status 1.
+
+=== 150 定位新鲜度 ===
+python : Traceback (most recent call last):
+所在位置 行:7 字符: 1
++ python "MokrRun-150定位新鲜度独立验收.py" 2>&1 | Out-File $out -Encoding UTF8  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\Hen\Desktop\手机\MokrRun-150定位新鲜度独立验收.py", line 98, in <module>
+    assert 'evaluateAndSend(fOrigin, fRoute, lat, lon, accuracy, 0L)' in draft
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+
+=== 127 控制入口 ===
+actual_float_pause_keeps_takeover PASS
+OBSERVED actual float pause: mode=2 confirmed=true override=true steps=3
+legacy_start_cannot_confirm_new_session PASS
+OBSERVED legacy start during PREPARED: mode=3 confirmed=false override=false
+0/2 independent cases failed
+
+=== 预备流程 7 项 ===
+confirm_initial_position PASS
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+OBSERVED just-confirmed position=30.0,120.0
+confirm_resets_segment PASS
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+OBSERVED confirmed points=2 segment=0 progress=0.0
+new_token_restarts_run PASS
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+OBSERVED second-token result=���λỰ��ȷ�ϲ������������ظ����������Ƚ������λỰ�� beforeSteps=3 afterSteps=3
+provider_reverts_confirmed_route PASS
+OBSERVED after provider poll routeStart=30.0 steps=3
+pause_reverts_confirmed_route PASS
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+OBSERVED after pause routeStart=30.0 steps=3
+stale_freeze_changes_new_session PASS
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+LOG MokrRun: ack context fallback failed java.lang.ClassNotFoundException: android.app.ActivityThread
+OBSERVED new confirmed session mode after old freeze=1
+rejected_confirm_ack PASS
+OBSERVED rejection ack count=1
+0/7 independent cases failed
+
+=== 125 补充 3 项 ===
+empty_provider_after_first_confirm PASS
+OBSERVED first draft confirmed, then provider poll: active=true confirmed=true points=2
+stale_freeze_during_preparation PASS
+OBSERVED prepared mode after old timeout=3
+cfg_pause_during_preparation PASS
+OBSERVED unconfirmed cfg-pause: confirmed=false active=false
+0/3 independent cases failed
+
+=== 地图契约 ===
+PASS actual home.html: locate centers current point; origin unchanged; duplicate click ignored; refresh preserves view
+OBSERVED actual map.html payload origin={"lat":30,"lon":120}
+PASS MapActivity.java: actual map origin field lon
+PASS MainActivity.java: actual map origin field lon
