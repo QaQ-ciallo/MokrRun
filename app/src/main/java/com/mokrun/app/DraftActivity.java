@@ -240,13 +240,22 @@ public class DraftActivity extends Activity {
      * 都会让这一次的定位结果失效（否则取消后仍会下发 CONFIRM）。
      */
     private boolean staleRequest(int gen) {
-        if (gen != confirmGen) return true;
-        if (destroyed) return true;
+        if (gen != confirmGen) return true;        // 旧代际：新请求已接管，不动标志
+        if (destroyed) { confirmInFlight = false; return true; }
         if (!confirmInFlight) return true;
         String session = Store.sessionId(this);
-        if (session.length() == 0) return true;
-        if (!snapshotOrigin.equals(Store.draftOrigin(this))) return true;
-        if (!snapshotRoute.equals(Store.draftWaypointsJson(this))) return true;
+        if (session.length() == 0) {
+            // 会话失效：释放进行中状态，避免页面卡在等待态无法重试
+            confirmInFlight = false;
+            setStatus("会话已失效：请回到首页重新「启用并打开体适能」。");
+            return true;
+        }
+        if (!snapshotOrigin.equals(Store.draftOrigin(this))
+                || !snapshotRoute.equals(Store.draftWaypointsJson(this))) {
+            confirmInFlight = false;
+            setStatus("草稿在等待定位时发生了变化，已取消本次下发，请重新确认。");
+            return true;
+        }
         return false;
     }
 
@@ -259,11 +268,18 @@ public class DraftActivity extends Activity {
                     + Math.round(acc) + " m）确认");
         }
         if (!r.ok) {
+            // 校验失败必须释放「进行中」状态：否则页面会停在等待态，
+            // 之后即使拿到新鲜定位、再点确认也不会下发（实机 1.0.152 复现）。
+            confirmInFlight = false;
+            pendingToken = null;
+            if (btnConfirm != null) btnConfirm.setEnabled(true);
             // 第一次遇到「起点离得很远」时，允许用户再点一次明确确认；
             // 绝不自作主张修改起点，也不生成过渡轨迹。
             if (r.needSecondTap) allowFarConfirmed = true;
             setStatus(r.message);
-            if (r.needSecondTap) btnConfirm.setText("再次点击：仍使用该起点");
+            if (btnConfirm != null) {
+                btnConfirm.setText(r.needSecondTap ? "再次点击：仍使用该起点" : "确认路线并开始");
+            }
             return;
         }
 
