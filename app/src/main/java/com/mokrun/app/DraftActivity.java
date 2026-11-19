@@ -51,6 +51,13 @@ public class DraftActivity extends Activity {
     private String pendingToken;
     private android.os.ResultReceiver confirmProbeReceiver;
     private final LocateTracker locateTracker = new LocateTracker();
+    /** 确认请求代际：取消/销毁/重新发起都会 ++，旧回调据此失效 */
+    private int confirmGen = 0;
+    /** 页面销毁标记：替代 isFinishing()/isDestroyed()，夹具与真机行为一致 */
+    private boolean destroyed = false;
+    /** 确认时的草稿快照，下发前复核，避免「拿到的定位属于另一份草稿」 */
+    private String snapshotOrigin = "";
+    private String snapshotRoute = "";
     private boolean confirmInFlight;
     private boolean allowFarConfirmed;
 
@@ -71,6 +78,10 @@ public class DraftActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        destroyed = true;
+        confirmGen++;
+        confirmInFlight = false;
+        LocationHelper.cancelFresh("destroy");
         handler.removeCallbacksAndMessages(null);
         AckReceiver.clearListener(null);
         if (ackReceiver != null) {
@@ -143,7 +154,10 @@ public class DraftActivity extends Activity {
         btnCancel.setText("取消");
         btnCancel.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
-                // 取消：保留预备态，丢弃草稿；不改变目标应用状态
+                // 取消：撤销定位请求、让迟到回调失效，再清草稿退出
+                confirmGen++;
+                confirmInFlight = false;
+                LocationHelper.cancelFresh("cancel");
                 Store.clearDraft(DraftActivity.this);
                 finish();
             }
@@ -199,24 +213,51 @@ public class DraftActivity extends Activity {
         // 实机就出现过「明明站着没动，确认却提示拿不到新鲜定位」。
         final String fOrigin = origin;
         final String fRoute = route;
+        final int gen = ++confirmGen;
+        snapshotOrigin = origin;
+        snapshotRoute = route;
+        confirmInFlight = true;
         setStatus("正在获取当前位置…");
         LocationHelper.requestFresh(this, locateTracker, new LocationHelper.FreshCallback() {
             @Override public void onPreview(double lat, double lon, float accuracy, long ageMs) { }
 
-            @Override public void onFresh(double lat, double lon, float accuracy) {
-                evaluateAndSend(fOrigin, fRoute, lat, lon, accuracy, 0L);
+            @Override public void onFresh(double lat, double lon, float accuracy,
+                                         long ageMs, boolean fromCache) {
+                if (staleRequest(gen)) return;
+                evaluateAndSend(fOrigin, fRoute, lat, lon, accuracy, ageMs, fromCache);
             }
 
             @Override public void onError(String message) {
+                if (staleRequest(gen)) return;
+                confirmInFlight = false;
                 setStatus("拿不到当前位置：" + message + "；可返回修改起点或重试");
             }
         });
     }
 
+    /**
+     * 迟到回调的守门员：取消、页面销毁、会话切换、另一次确认请求开始，
+     * 都会让这一次的定位结果失效（否则取消后仍会下发 CONFIRM）。
+     */
+    private boolean staleRequest(int gen) {
+        if (gen != confirmGen) return true;
+        if (destroyed) return true;
+        if (!confirmInFlight) return true;
+        String session = Store.sessionId(this);
+        if (session.length() == 0) return true;
+        if (!snapshotOrigin.equals(Store.draftOrigin(this))) return true;
+        if (!snapshotRoute.equals(Store.draftWaypointsJson(this))) return true;
+        return false;
+    }
+
     private void evaluateAndSend(String origin, String route, double curLat, double curLon,
-                                 double acc, long age) {
+                                 double acc, long age, boolean fromCache) {
         RouteDraft.Result r = RouteDraft.check(origin, route, curLat, curLon, acc, age,
                 allowFarConfirmed);
+        if (fromCache && r.ok) {
+            setStatus("使用 " + Math.max(0L, age / 1000) + " s 前的定位（精度 "
+                    + Math.round(acc) + " m）确认");
+        }
         if (!r.ok) {
             // 第一次遇到「起点离得很远」时，允许用户再点一次明确确认；
             // 绝不自作主张修改起点，也不生成过渡轨迹。
@@ -229,6 +270,13 @@ public class DraftActivity extends Activity {
         String session = Store.sessionId(this);
         if (session.length() == 0) {
             setStatus("会话已失效：请回到首页重新「启用并打开体适能」。");
+            confirmInFlight = false;
+            return;
+        }
+        // 下发前再确认一次草稿没有被改动（定位等待期间用户可能又编辑了）
+        if (!snapshotOrigin.equals(origin) || !snapshotRoute.equals(route)) {
+            confirmInFlight = false;
+            setStatus("草稿在等待定位时发生了变化，已取消本次下发，请重新确认。");
             return;
         }
         final String token = UUID.randomUUID().toString();

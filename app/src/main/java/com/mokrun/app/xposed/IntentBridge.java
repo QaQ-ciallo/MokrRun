@@ -66,6 +66,11 @@ public final class IntentBridge {
     private static void read(Intent it, String from) {
         try {
             if (it == null) return;
+            // 必须在读取**任何** extras 之前设置：extras 里可能含模块 APK 的 Parcelable
+            try {
+                it.setExtrasClassLoader(MotionEngine.class.getClassLoader());
+            } catch (Throwable ignored) {
+            }
             String op = it.getStringExtra(EX_OP);
             String session = it.getStringExtra(EX_SESSION);
             String token = it.getStringExtra(EX_TOKEN);
@@ -76,9 +81,6 @@ public final class IntentBridge {
 
             // 模块把 ResultReceiver 句柄放在 extras 里：拿到后引擎在状态切换完成时直接回调
             try {
-                // extras 里是模块 APK 里的类（ResultReceiver 子类）：目标进程默认用体适能的
-                // classloader 反序列化会抛 BadParcelableException，必须换成模块的 classloader
-                it.setExtrasClassLoader(MotionEngine.class.getClassLoader());
                 android.os.Parcelable rr = it.getParcelableExtra("mokr_rr");
                 if (rr != null) MotionEngine.setAckReceiver(rr);
             } catch (Throwable t) {

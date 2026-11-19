@@ -168,7 +168,7 @@ public final class ConfigSync {
         }
     }
 
-    /** 建立预备会话并携带 ResultReceiver（binder 回调，最小验证用） */
+    /** 建立预备会话并携带 ResultReceiver（binder 回调）：目标已运行时走这条 */
     public static boolean launchPrepared(Context ctx, String session, android.os.Parcelable rr) {
         Intent i = baseTargetIntent(ctx);
         i.putExtra("mokr_op", OP_PREPARE);

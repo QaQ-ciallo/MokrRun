@@ -115,7 +115,7 @@ public final class MotionEngine {
     private static volatile String sAppliedToken = "";
     /** 当前会话确认后的权威路线快照（只由 CONFIRM 写入，供 Provider 对照与日志） */
     private static volatile String sConfirmedOrigin = "";
-    /** 模块传入的 ResultReceiver（binder 回调）：最小验证用，sCtx 不可达时的第二条回执通道 */
+    /** 模块传入的 ResultReceiver（binder 回调）：PREPARE/CONFIRM/CLEAR 的结果主通道 */
     private static volatile Object sAckReceiver = null;
 
     public static void setAckReceiver(Object rr) {
@@ -874,7 +874,7 @@ public final class MotionEngine {
                                 final String reason, final String kind) {
         final String k = kind == null ? OP_CONFIRM : kind;
         // 关键路径：ResultReceiver（binder 回调）。失败才发一次广播兜底，不再重试、
-        // 不再走 Provider（实机证明该通道在本设备上必然失败，重试只是拖慢确认）。
+        // 不再走 Provider：该通道在 MIUI 上对跨应用调用不可用（原因未完全定位），重试只会拖慢确认。
         if (fireResultReceiver(k, session, token, ok, reason)) return;
         final android.content.Context ctx = ackContext();
         if (ctx == null) {

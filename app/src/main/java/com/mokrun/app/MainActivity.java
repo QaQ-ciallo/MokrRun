@@ -335,10 +335,15 @@ public class MainActivity extends Activity {
                         lat, lon, accuracy, Math.max(0L, ageMs / 1000)));
             }
 
-            @Override public void onFresh(double lat, double lon, float accuracy) {
+            @Override public void onFresh(double lat, double lon, float accuracy,
+                                         long ageMs, boolean fromCache) {
+                String note = fromCache
+                        ? String.format(Locale.US, "使用 %d 秒前的位置（精度 %.0f m）",
+                                Math.max(0L, ageMs / 1000), accuracy)
+                        : String.format(Locale.US, "精度 %.0f m", accuracy);
                 callJs(String.format(Locale.US,
-                        "onLocateResult('%.7f','%.7f','%.1f','精度 %.0f m')",
-                        lat, lon, accuracy, accuracy));
+                        "onLocateResult('%.7f','%.7f','%.1f','%s')",
+                        lat, lon, accuracy, note.replace("'", " ")));
             }
 
             @Override public void onError(String message) {

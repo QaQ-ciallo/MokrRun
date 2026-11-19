@@ -127,12 +127,15 @@ public class OriginActivity extends Activity {
                 moveTo(lat, lon);
             }
 
-            @Override public void onFresh(double lat, double lon, float accuracy) {
+            @Override public void onFresh(double lat, double lon, float accuracy,
+                                         long ageMs, boolean fromCache) {
                 moveTo(lat, lon);
                 showCoord(lat, lon);
-                Toast.makeText(OriginActivity.this,
-                        "已定位到当前位置（精度约 " + Math.round(accuracy) + " m）",
-                        Toast.LENGTH_SHORT).show();
+                String msg = fromCache
+                        ? "使用的是 " + Math.max(0L, ageMs / 1000) + " 秒前的定位（精度约 "
+                                + Math.round(accuracy) + " m），可稍后重试或拖动准星微调"
+                        : "已定位到当前位置（精度约 " + Math.round(accuracy) + " m）";
+                Toast.makeText(OriginActivity.this, msg, Toast.LENGTH_LONG).show();
             }
 
             @Override public void onError(String message) {

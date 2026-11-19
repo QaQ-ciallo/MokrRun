@@ -167,8 +167,34 @@ public final class LocationHelper {
     public interface FreshCallback {
         /** 只有预览意义的缓存（可能为空），不能据此宣布定位完成 */
         void onPreview(double lat, double lon, float accuracy, long ageMs);
-        void onFresh(double lat, double lon, float accuracy);
+
+        /**
+         * @param ageMs     这个点离现在多久（毫秒）：新点≈0，缓存兜底会是真实年龄
+         * @param fromCache 是否来自缓存兜底（调用方必须按真实年龄校验，不能当新点）
+         */
+        void onFresh(double lat, double lon, float accuracy, long ageMs, boolean fromCache);
+
         void onError(String message);
+    }
+
+    // ---- 请求生命周期 ------------------------------------------------------
+    // 取消/代际：取消、页面销毁或新请求开始时，旧回调必须失效
+    private static volatile int sGen = 0;
+    private static volatile LocationManager sActiveLm;
+    private static volatile LocationListener sActiveListener;
+
+    /** 撤销当前定位请求：迟到回调会被代际检查拒绝 */
+    public static void cancelFresh(String reason) {
+        sGen++;
+        LocationManager lm = sActiveLm;
+        LocationListener l = sActiveListener;
+        sActiveLm = null;
+        sActiveListener = null;
+        if (lm != null && l != null) {
+            try { lm.removeUpdates(l); } catch (Throwable ignored) {
+            }
+        }
+        android.util.Log.i("MokrRunLoc", "fresh request cancelled (" + reason + ")");
     }
 
     /**
@@ -198,13 +224,14 @@ public final class LocationHelper {
         }
         if (!tracker.begin(System.currentTimeMillis())) return;   // 重复点击
 
+        final int gen = ++sGen;
         final double[] cache = cachedWithAge(ctx);
         if (cache != null && (long) cache[3] <= LocateTracker.FRESH_ENOUGH_MS
                 && (!preferPrecise || cache[2] <= PRECISE_ACCURACY_M)) {
             tracker.succeed();
             android.util.Log.i("MokrRunLoc", "cache accepted acc=" + cache[2]
                     + " age=" + (long) cache[3]);
-            cb.onFresh(cache[0], cache[1], (float) cache[2]);
+            cb.onFresh(cache[0], cache[1], (float) cache[2], (long) cache[3], true);
             return;
         }
         if (cache != null && LocateTracker.cacheUsable((long) cache[3])) {
@@ -232,6 +259,11 @@ public final class LocationHelper {
         final LocationListener listener = new LocationListener() {
             @Override public void onLocationChanged(Location l) {
                 if (l == null || !tracker.isRequesting()) return;
+                if (gen != sGen) {
+                    android.util.Log.i("MokrRunLoc", "stale callback dropped (gen " + gen
+                            + " != " + sGen + ")");
+                    return;
+                }
                 if (preferPrecise && l.getAccuracy() > PRECISE_ACCURACY_M) {
                     if (best[0] == null || l.getAccuracy() < best[0].getAccuracy()) {
                         best[0] = new Location(l);
@@ -240,12 +272,16 @@ public final class LocationHelper {
                 }
                 h.removeCallbacksAndMessages(null);
                 try { lm.removeUpdates(this); } catch (Throwable ignored) {}
+                sActiveLm = null;
+                sActiveListener = null;
                 double[] g = wgs2gcj(l.getLatitude(), l.getLongitude());
+                long age = Math.max(0L, System.currentTimeMillis() - l.getTime());
                 tracker.succeed();
                 android.util.Log.i("MokrRunLoc", "fresh " + l.getProvider()
                         + " wgs=" + l.getLatitude() + "," + l.getLongitude()
-                        + " gcj=" + g[0] + "," + g[1] + " acc=" + l.getAccuracy());
-                cb.onFresh(g[0], g[1], l.getAccuracy());
+                        + " gcj=" + g[0] + "," + g[1] + " acc=" + l.getAccuracy()
+                        + " age=" + age);
+                cb.onFresh(g[0], g[1], l.getAccuracy(), age, false);
             }
             @Override public void onStatusChanged(String p, int s, Bundle b) {}
             @Override public void onProviderEnabled(String p) {}
@@ -255,13 +291,21 @@ public final class LocationHelper {
         final Runnable giveUp = new Runnable() {
             @Override public void run() {
                 if (!tracker.isRequesting()) return;
+                if (gen != sGen) {
+                    android.util.Log.i("MokrRunLoc", "stale timeout dropped (gen " + gen
+                            + " != " + sGen + ")");
+                    return;
+                }
                 try { lm.removeUpdates(listener); } catch (Throwable ignored) {}
+                sActiveLm = null;
+                sActiveListener = null;
                 if (best[0] != null) {
                     double[] g = wgs2gcj(best[0].getLatitude(), best[0].getLongitude());
+                    long age = Math.max(0L, System.currentTimeMillis() - best[0].getTime());
                     tracker.succeed();
                     android.util.Log.i("MokrRunLoc", "coarse fallback acc="
-                            + best[0].getAccuracy());
-                    cb.onFresh(g[0], g[1], best[0].getAccuracy());
+                            + best[0].getAccuracy() + " age=" + age);
+                    cb.onFresh(g[0], g[1], best[0].getAccuracy(), age, false);
                     return;
                 }
                 double[] late = cachedWithAge(ctx);
@@ -269,7 +313,8 @@ public final class LocationHelper {
                     tracker.succeed();
                     android.util.Log.i("MokrRunLoc", "cached fallback age="
                             + ((long) late[3] / 1000) + "s");
-                    cb.onFresh(late[0], late[1], (float) late[2]);
+                    // 真实年龄照实回传：调用方必须按 age 校验，不能当成刚取到的点
+                    cb.onFresh(late[0], late[1], (float) late[2], (long) late[3], true);
                     return;
                 }
                 tracker.fail("定位超时");
@@ -281,6 +326,8 @@ public final class LocationHelper {
 
         try {
             boolean any = false;
+            sActiveLm = lm;
+            sActiveListener = listener;
             if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f,
                         listener, Looper.getMainLooper());

@@ -32,8 +32,9 @@ public class ConfigProvider extends ContentProvider {
     /**
      * 目标进程 → 模块 App 的回执直连通道。
      *
-     * 广播在 MIUI 上会被排进 Pending broadcasts（实测 1.0.135：引擎已发送 op=prepare 的
-     * 回执，模块侧 6 s 内收不到），改用 Provider.call 走 binder 直达，不经过广播队列。
+     * 注意：实机 1.0.135–1.0.141 复现「目标进程 → 本 Provider」的 call() 在 MIUI 上不可用
+     * （前台/后台都一样，原因未完全定位），所以回执主通道已改为 ResultReceiver；
+     * 这里保留 call() 仅作诊断入口，不参与关键流程。
      */
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
