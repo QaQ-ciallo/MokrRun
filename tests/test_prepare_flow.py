@@ -21,7 +21,7 @@ import jvm_fakes  # noqa: E402
 
 PRODUCTION = ["MotionEngine", "SensorHook", "LocationProbe", "ResourceProbe",
               "IntentBridge", "GnssHook", "CommandReceiver",
-              "data.RouteDraft", "data.LocateTracker"]
+              "data.RouteDraft", "data.LocateTracker", "data.EnableFlow"]
 
 RECEIVER_CONTEXT = """
 package android.content;
@@ -411,6 +411,100 @@ public class PrepareFlowRegression {
             check(RouteDraft.originFromRouteJson(new org.json.JSONObject().put("origin", bad)) == null,
                     "非法起点未被拒绝");
             check(RouteDraft.parseDraftOrigin("") == null, "空草稿起点未被拒绝");
+        } else if (which.equals("first_confirm_survives_empty_provider")) {
+            // 首次只画草稿：活动存储里没有路线（Provider 返回空 origin/route）
+            Context ctx = new Context();
+            ctx.resolver.row = new Cursor(Float.valueOf(4.8f), Float.valueOf(3.12f),
+                    Float.valueOf(1.538f), Integer.valueOf(1), "", "", Integer.valueOf(3));
+            MotionEngine.configure(ctx);
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            // 确认后 Provider 仍是空快照，且 run 变成 1
+            ctx.resolver.row = new Cursor(Float.valueOf(4.8f), Float.valueOf(3.12f),
+                    Float.valueOf(1.538f), Integer.valueOf(1), "", "", Integer.valueOf(1));
+            set("sRunCheckedAt", Long.valueOf(0L));
+            for (int k = 0; k < 8; k++) tickAfter(250L);
+            check(MotionEngine.shouldOverridePosition(), "empty provider snapshot revoked confirmed draft");
+            check(MotionEngine.shouldAdvanceMotion(), "engine stopped advancing after provider poll");
+            check(MotionEngine.hasRoute(), "confirmed route was erased by empty snapshot");
+            check(MotionEngine.steps() > 0, "no steps after provider poll");
+
+        } else if (which.equals("explicit_clear_still_works")) {
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            // 旧会话的清除命令必须被拒绝
+            check(MotionEngine.clearExplicit("other-session") != null, "stale clear accepted");
+            check(MotionEngine.hasRoute(), "stale clear wiped the route");
+            // 当前会话的显式清除必须生效
+            check(MotionEngine.clearExplicit("s1") == null, "explicit clear rejected");
+            check(!MotionEngine.hasRoute(), "explicit clear did not clear route");
+            check(!MotionEngine.shouldOverridePosition(), "cleared route still overrides position");
+            check(!MotionEngine.shouldAdvanceMotion(), "cleared route still advances");
+
+        } else if (which.equals("stale_freeze_isolated_at_prepare")) {
+            // OFF 时出现冻结（此时没有会话）
+            MotionEngine.freezeForFace();
+            check(readMode() == 2, "freeze in OFF did not enter PAUSED");
+            MotionEngine.prepareSession("s1", CFG);
+            check(readMode() == 3, "prepare did not enter PREPARED");
+            // 旧超时到点（真实回调会在超时后调用 resumeAfterFace）
+            MotionEngine.resumeAfterFace();
+            check(readMode() == 3, "old freeze timeout changed new PREPARED session: " + readMode());
+            // 新会话自己的冻结/恢复必须正常
+            MotionEngine.freezeForFace();
+            check(readMode() == 2, "own freeze in PREPARED failed");
+            MotionEngine.resumeAfterFace();
+            check(readMode() == 3, "own resume did not return to PREPARED: " + readMode());
+
+        } else if (which.equals("legacy_pause_cannot_confirm_route")) {
+            // 上一场留下路线
+            MotionEngine.applyFromIntent(CFG, ORIGIN, ROUTE, 1);
+            MotionEngine.endSession();
+            MotionEngine.prepareSession("s1", CFG);
+            // 真实接收器收到旧式「只带 cfg + mode=2」的暂停命令
+            Intent pause = new Intent().putExtra("mode", Integer.valueOf(2))
+                    .putExtra("cfg", CFG).putExtra("origin", ORIGIN).putExtra("route", ROUTE);
+            new CommandReceiver.Receiver().onReceive(new Context(), pause);
+            check(!MotionEngine.isRouteConfirmed(), "pause silently confirmed old route");
+            check(!MotionEngine.shouldOverridePosition(), "unconfirmed session took over position");
+            check(readMode() == 3, "pause changed PREPARED mode: " + readMode());
+
+        } else if (which.equals("prepare_ack_matches_session")) {
+            Context ctx = new Context();
+            ctx.resolver.row = new Cursor(Float.valueOf(4.8f), Float.valueOf(3.12f),
+                    Float.valueOf(1.538f), Integer.valueOf(1), "", "", Integer.valueOf(3));
+            MotionEngine.configure(ctx);
+            Context.SentBroadcasts.clear();
+            MotionEngine.prepareSession("s-ack", CFG);
+            check(!Context.SentBroadcasts.isEmpty(), "prepare sent no ack");
+            Intent ack = Context.SentBroadcasts.get(Context.SentBroadcasts.size() - 1);
+            check("com.mokrun.app.ACK".equals(ack.getAction()), "ack action wrong");
+            check("prepare".equals(ack.getStringExtra("op")), "ack op must be prepare");
+            check(ack.getBooleanExtra("ok", false), "prepare ack must report ok");
+            check("s-ack".equals(ack.getStringExtra("session")), "ack session mismatch");
+            check(ack.getIntExtra("mode", -1) == 3, "ack mode must be PREPARED");
+
+        } else if (which.equals("enable_flow_three_outcomes")) {
+            com.mokrun.app.data.EnableFlow f = new com.mokrun.app.data.EnableFlow();
+            check(f.begin("s1", 1000L), "begin rejected");
+            check(!f.begin("s1", 1100L), "duplicate click not ignored");
+            check(!f.onAck("other", true, null, 1200L), "ack from other session accepted");
+            check(f.phase() == com.mokrun.app.data.EnableFlow.Phase.SENT, "phase changed by foreign ack");
+            check(f.onAck("s1", true, null, 1300L), "matching ack rejected");
+            check(f.phase() == com.mokrun.app.data.EnableFlow.Phase.ACKED, "ack did not mark enabled");
+            check(!f.checkTimeout(1300L + com.mokrun.app.data.EnableFlow.ACK_TIMEOUT_MS + 1),
+                    "timeout fired after ack");
+            // 导航失败是第二个结果，不回滚「已启用」
+            f.recordNav(false, "打开体适能失败");
+            check(f.phase() == com.mokrun.app.data.EnableFlow.Phase.ACKED, "nav failure rolled back enabled");
+            check(!f.navOk(), "nav result lost");
+            // 无回执 → 超时失败，不得宣告已启用
+            com.mokrun.app.data.EnableFlow g = new com.mokrun.app.data.EnableFlow();
+            g.begin("s2", 1000L);
+            check(g.checkTimeout(1000L + com.mokrun.app.data.EnableFlow.ACK_TIMEOUT_MS + 1),
+                    "timeout not detected");
+            check(g.phase() == com.mokrun.app.data.EnableFlow.Phase.FAILED, "timeout did not fail");
+            check(g.failure().length() > 0, "timeout carries no message");
         } else {
             throw new IllegalArgumentException(which);
         }
@@ -458,6 +552,12 @@ CASES = [
     "stale_freeze_timeout_ignored",
     "rejected_confirm_sends_failure_ack",
     "draft_origin_uses_lon_field",
+    "first_confirm_survives_empty_provider",
+    "explicit_clear_still_works",
+    "stale_freeze_isolated_at_prepare",
+    "legacy_pause_cannot_confirm_route",
+    "prepare_ack_matches_session",
+    "enable_flow_three_outcomes",
     # 定位按钮的请求状态机
 
 ]
