@@ -1,0 +1,111 @@
+﻿
+>       Action: "com.mokrun.app.ACK"
+    * ReceiverList{3f93644 5391 com.miui.miwallpaper/10184/u0 remote:1be7b57}
+      app=5391:com.miui.miwallpaper/u0a184 pid=5391 uid=10184 user=0 #receivers=3
+      Filter #0: BroadcastFilter{c3d032d}
+>         com.mokrun.app.ACK:
+            BroadcastFilter{7d67473 10506/u0 ReceiverList{21428e2 28855 com.mokrun.app/10506/u0 remote:7453dad}}
+          com.mokrun.app.CMD:
+            BroadcastFilter{24f926c 10426/u0 ReceiverList{9518f1f 17853 com.bxkj.student/10426/u0 remote:76d92be}}
+>       BroadcastRecord{e0d6369 com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 17853:com.bxkj.student/u0a426 pid=17853 uid=10426
+        enqueueClockTime=2026-11-19 23:11:28.190 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{c3381ee com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 17853:com.bxkj.student/u0a426 pid=17853 uid=10426
+        enqueueClockTime=2026-11-19 23:11:26.987 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{f99068f com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 17853:com.bxkj.student/u0a426 pid=17853 uid=10426
+        enqueueClockTime=2026-11-19 23:11:26.183 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{5c18d1c com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 17853:com.bxkj.student/u0a426 pid=17853 uid=10426
+        enqueueClockTime=2026-11-19 23:11:25.781 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{c0fcd25 com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 0:com.bxkj.student/u0a426 pid=7804 uid=10426
+        enqueueClockTime=2026-11-19 22:21:11.774 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{2d9cefa com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 0:com.bxkj.student/u0a426 pid=7804 uid=10426
+        enqueueClockTime=2026-11-19 22:21:10.567 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{3297cab com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 0:com.bxkj.student/u0a426 pid=7804 uid=10426
+        enqueueClockTime=2026-11-19 22:21:09.764 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{3e85f08 com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 0:com.bxkj.student/u0a426 pid=7804 uid=10426
+        enqueueClockTime=2026-11-19 22:21:09.362 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{f1516a1 com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 0:com.bxkj.student/u0a426 pid=5315 uid=10426
+        enqueueClockTime=2026-11-19 22:20:17.629 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{a65e0c6 com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 0:com.bxkj.student/u0a426 pid=1801 uid=10426
+        enqueueClockTime=2026-11-19 22:19:46.938 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+>       BroadcastRecord{428e895 com.mokrun.app.ACK/u0} to user 0
+>       Intent { act=com.mokrun.app.ACK flg=0x10 xflg=0x4 pkg=com.mokrun.app cmp=com.mokrun.app/.AckReceiver (has extras) }
+          extras: Bundle[mParcelledData.dataSize=240]
+        caller=com.bxkj.student 0:com.bxkj.student/u0a426 pid=32433 uid=10426
+        enqueueClockTime=2026-11-19 22:18:53.213 dispatchClockTime=1970-01-01 08:00:00.000
+>           name=com.mokrun.app.AckReceiver
+            packageName=com.mokrun.app
+            enabled=true exported=true directBootAware=false
+            launchMode=LAUNCH_MULTIPLE flags=0x10000 privateFlags=0x0 theme=0x0
+
+
+
