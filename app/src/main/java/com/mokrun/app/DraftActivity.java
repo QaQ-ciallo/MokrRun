@@ -49,6 +49,7 @@ public class DraftActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private BroadcastReceiver ackReceiver;
     private String pendingToken;
+    private android.os.ResultReceiver confirmProbeReceiver;
     private boolean confirmInFlight;
     private boolean allowFarConfirmed;
 
@@ -213,9 +214,26 @@ public class DraftActivity extends Activity {
         btnConfirm.setEnabled(false);
         setStatus("已下发配置，等待目标进程确认…");
 
+        confirmProbeReceiver = new android.os.ResultReceiver(
+                new android.os.Handler(android.os.Looper.getMainLooper())) {
+            @Override protected void onReceiveResult(int resultCode, android.os.Bundle resultData) {
+                if (resultData == null) return;
+                android.util.Log.i("MokrRunAckProbe", "confirm result op="
+                        + resultData.getString("op") + " token="
+                        + resultData.getString("token") + " ok="
+                        + resultData.getBoolean("ok", false));
+                Intent it = new Intent(ConfigSync.ACK_ACTION)
+                        .putExtra("op", resultData.getString("op"))
+                        .putExtra("session", resultData.getString("session"))
+                        .putExtra("token", resultData.getString("token"))
+                        .putExtra("ok", resultData.getBoolean("ok", false))
+                        .putExtra("reason", resultData.getString("reason"));
+                handleAck(it);
+            }
+        };
         boolean sent = ConfigSync.isTargetRunning(this)
-                ? ConfigSync.sendConfirm(this, session, token, origin, route)
-                : ConfigSync.launchConfirm(this, session, token, origin, route);
+                ? ConfigSync.sendConfirm(this, session, token, origin, route, confirmProbeReceiver)
+                : ConfigSync.launchConfirm(this, session, token, origin, route, confirmProbeReceiver);
         if (!sent) {
             failConfirm("下发失败：无法把配置送到体适能");
             return;

@@ -570,6 +570,77 @@ public class PrepareFlowRegression {
             check(!MotionEngine.shouldOverridePosition(), "legacy run=1 took over position");
             tickAfter(250L);
             check(Math.abs(MotionEngine.lat() - lat) < 1e-9, "legacy run=1 moved the position");
+        } else if (which.equals("ack_via_resultreceiver_prepare")) {
+            final java.util.List<android.os.Bundle> got = new java.util.ArrayList<android.os.Bundle>();
+            MotionEngine.setAckReceiver(new android.os.ResultReceiver() {
+                @Override protected void onReceiveResult(int code, android.os.Bundle data) { got.add(data); }
+            });
+            MotionEngine.prepareSession("s-rr", CFG);
+            check(!got.isEmpty(), "prepare did not fire ResultReceiver callback");
+            android.os.Bundle b = got.get(got.size() - 1);
+            check("prepare".equals(b.getString("op")), "callback op must be prepare");
+            check("s-rr".equals(b.getString("session")), "callback session mismatch");
+            check(b.getBoolean("ok", false), "callback must report ok");
+            check(b.getInt("mode", -1) == 3, "callback mode must be PREPARED");
+
+        } else if (which.equals("ack_via_resultreceiver_confirm")) {
+            final java.util.List<android.os.Bundle> got = new java.util.ArrayList<android.os.Bundle>();
+            MotionEngine.setAckReceiver(new android.os.ResultReceiver() {
+                @Override protected void onReceiveResult(int code, android.os.Bundle data) { got.add(data); }
+            });
+            MotionEngine.prepareSession("s-rr", CFG);
+            got.clear();
+            check(MotionEngine.applyConfirm("s-rr", "tok-1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            check(!got.isEmpty(), "confirm did not fire callback");
+            android.os.Bundle b = got.get(got.size() - 1);
+            check("confirm".equals(b.getString("op")), "callback op must be confirm");
+            check("tok-1".equals(b.getString("token")), "callback token mismatch");
+            check(b.getBoolean("ok", false), "confirm callback must report ok");
+            check(b.getInt("mode", -1) == 1, "confirm callback mode must be RUNNING");
+
+        } else if (which.equals("ack_via_resultreceiver_failure")) {
+            final java.util.List<android.os.Bundle> got = new java.util.ArrayList<android.os.Bundle>();
+            MotionEngine.setAckReceiver(new android.os.ResultReceiver() {
+                @Override protected void onReceiveResult(int code, android.os.Bundle data) { got.add(data); }
+            });
+            MotionEngine.prepareSession("s-rr", CFG);
+            got.clear();
+            check(MotionEngine.applyConfirm("s-rr", "tok-bad", CFG, "abc", ROUTE) != null, "invalid route accepted");
+            check(!got.isEmpty(), "rejection did not fire callback");
+            android.os.Bundle b = got.get(got.size() - 1);
+            check("confirm".equals(b.getString("op")), "rejection op must be confirm");
+            check(!b.getBoolean("ok", true), "rejection must report ok=false");
+            check(b.getString("reason") != null, "rejection must carry reason");
+
+        } else if (which.equals("cmd_broadcast_carries_resultreceiver")) {
+            final java.util.List<android.os.Bundle> got = new java.util.ArrayList<android.os.Bundle>();
+            android.os.ResultReceiver rr = new android.os.ResultReceiver() {
+                @Override protected void onReceiveResult(int code, android.os.Bundle data) { got.add(data); }
+            };
+            MotionEngine.setAckReceiver(null);
+            new CommandReceiver.Receiver().onReceive(new Context(),
+                    new Intent().putExtra("op", "prepare").putExtra("session", "s-bc")
+                           .putExtra("cfg", CFG).putExtra("mokr_rr", rr));
+            check(!got.isEmpty(), "broadcast path did not use the carried ResultReceiver");
+            check("s-bc".equals(got.get(got.size() - 1).getString("session")), "broadcast session mismatch");
+            check(readMode() == 3, "broadcast prepare did not enter PREPARED");
+
+        } else if (which.equals("no_receiver_falls_back_to_broadcast")) {
+            Context ctx = new Context();
+            ctx.resolver.row = new Cursor(Float.valueOf(4.8f), Float.valueOf(3.12f),
+                    Float.valueOf(1.538f), Integer.valueOf(1), "", "", Integer.valueOf(3));
+            MotionEngine.configure(ctx);
+            MotionEngine.setAckReceiver(null);
+            Context.SentBroadcasts.clear();
+            MotionEngine.prepareSession("s-fb", CFG);
+            check(waitForAckOp("prepare", 1500L), "no fallback broadcast when receiver missing");
+            synchronized (Context.SentBroadcasts) {
+                boolean found = false;
+                for (Intent i : Context.SentBroadcasts) {
+                    if ("prepare".equals(i.getStringExtra("op"))) found = true;
+                }
+                check(found, "fallback broadcast missing prepare op");
+            }
         } else {
             throw new IllegalArgumentException(which);
         }
@@ -625,6 +696,11 @@ CASES = [
     "enable_flow_three_outcomes",
     "float_pause_keeps_takeover",
     "legacy_start_cannot_confirm_new_session",
+    "ack_via_resultreceiver_prepare",
+    "ack_via_resultreceiver_confirm",
+    "ack_via_resultreceiver_failure",
+    "cmd_broadcast_carries_resultreceiver",
+    "no_receiver_falls_back_to_broadcast",
     # 定位按钮的请求状态机
 
 ]

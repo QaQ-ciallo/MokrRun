@@ -129,7 +129,7 @@ public class MainActivity extends Activity {
             }
         };
         boolean sent = ConfigSync.isTargetRunning(this)
-                ? ConfigSync.sendPrepare(this, session)
+                ? ConfigSync.sendPrepare(this, session, ackProbeReceiver)
                 : ConfigSync.launchPrepared(this, session, ackProbeReceiver);
         if (!sent) {
             enableFlow.failSend("无法把启用请求送到体适能");

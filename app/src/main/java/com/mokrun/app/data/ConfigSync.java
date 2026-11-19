@@ -178,6 +178,23 @@ public final class ConfigSync {
         return startTarget(ctx, i);
     }
 
+    /** 建立预备会话（已运行路径）：显式广播里携带 ResultReceiver 句柄 */
+    public static boolean sendPrepare(Context ctx, String session, android.os.Parcelable rr) {
+        try {
+            Intent i = new Intent(CMD_ACTION);
+            i.setPackage(TARGET_PKG);
+            i.putExtra("op", OP_PREPARE);
+            i.putExtra("session", session == null ? "" : session);
+            i.putExtra("cfg", buildLine(ctx));
+            if (rr != null) i.putExtra("mokr_rr", rr);
+            ctx.sendBroadcast(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "sendPrepare(rr) failed", t);
+            return false;
+        }
+    }
+
     /** 建立预备会话：目标进程没打开时拉起（配置随启动 Intent 送达） */
     public static boolean launchPrepared(Context ctx, String session) {
         Intent i = baseTargetIntent(ctx);
@@ -208,6 +225,41 @@ public final class ConfigSync {
             Log.e(TAG, "sendConfirm failed", t);
             return false;
         }
+    }
+
+    /** 确认启动并携带 ResultReceiver（显式广播路径） */
+    public static boolean sendConfirm(Context ctx, String session, String token,
+                                      String origin, String route, android.os.Parcelable rr) {
+        try {
+            Intent i = new Intent(CMD_ACTION);
+            i.setPackage(TARGET_PKG);
+            i.putExtra("op", OP_CONFIRM);
+            i.putExtra("session", session == null ? "" : session);
+            i.putExtra("token", token == null ? "" : token);
+            i.putExtra("cfg", buildLine(ctx));
+            i.putExtra("origin", origin == null ? "" : origin);
+            i.putExtra("route", route == null ? "" : route);
+            if (rr != null) i.putExtra("mokr_rr", rr);
+            ctx.sendBroadcast(i);
+            return true;
+        } catch (Throwable t) {
+            Log.e(TAG, "sendConfirm(rr) failed", t);
+            return false;
+        }
+    }
+
+    /** 确认启动并携带 ResultReceiver（冷启动路径） */
+    public static boolean launchConfirm(Context ctx, String session, String token,
+                                        String origin, String route, android.os.Parcelable rr) {
+        Intent i = baseTargetIntent(ctx);
+        i.putExtra("mokr_op", OP_CONFIRM);
+        i.putExtra("mokr_session", session == null ? "" : session);
+        i.putExtra("mokr_token", token == null ? "" : token);
+        i.putExtra("mokr_cfg", buildLine(ctx));
+        i.putExtra("mokr_origin", origin == null ? "" : origin);
+        i.putExtra("mokr_route", route == null ? "" : route);
+        if (rr != null) i.putExtra("mokr_rr", rr);
+        return startTarget(ctx, i);
     }
 
     public static boolean launchConfirm(Context ctx, String session, String token,

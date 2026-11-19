@@ -81,6 +81,17 @@ public final class CommandReceiver {
         @Override public void onReceive(Context context, Intent intent) {
             try {
                 if (intent == null) return;
+                // 模块 APK 里的类（ResultReceiver 子类）必须用模块 classloader 反序列化
+                try {
+                    intent.setExtrasClassLoader(MotionEngine.class.getClassLoader());
+                } catch (Throwable ignored) {
+                }
+                try {
+                    android.os.Parcelable rr = intent.getParcelableExtra("mokr_rr");
+                    if (rr != null) MotionEngine.setAckReceiver(rr);
+                } catch (Throwable t) {
+                    XposedBridge.log(TAG + ": read result receiver failed " + t);
+                }
                 String op = intent.getStringExtra(EX_OP);
                 if (OP_PREPARE.equals(op)) {
                     MotionEngine.prepareSession(intent.getStringExtra(EX_SESSION),

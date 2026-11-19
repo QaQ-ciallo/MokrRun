@@ -191,6 +191,14 @@ public class Handler {
     }
 }
 """,
+    "android/os/Parcelable.java": "package android.os; public interface Parcelable {}",
+    "android/os/ResultReceiver.java": """
+package android.os;
+public abstract class ResultReceiver implements Parcelable {
+    protected abstract void onReceiveResult(int resultCode, Bundle resultData);
+    public void send(int resultCode, Bundle resultData) { onReceiveResult(resultCode, resultData); }
+}
+""",
     "android/os/Bundle.java": """
 package android.os;
 import java.util.*;
@@ -306,6 +314,9 @@ public class Intent {
     public Intent putExtra(String key, int value) { extras.put(key,value); return this; }
     public Intent putExtra(String key, boolean value) { extras.put(key,value); return this; }
     public String getStringExtra(String key) { return (String)extras.get(key); }
+    public Intent setExtrasClassLoader(ClassLoader cl) { return this; }
+    @SuppressWarnings("unchecked")
+    public <T extends android.os.Parcelable> T getParcelableExtra(String key) { return (T) extras.get(key); }
     public int getIntExtra(String key, int fallback) {
         Object v=extras.get(key); return v==null ? fallback : ((Integer) v).intValue();
     }
@@ -313,6 +324,7 @@ public class Intent {
         Object v=extras.get(key); return v==null ? fallback : ((Long) v).longValue();
     }
     public Intent putExtra(String key, long value) { extras.put(key,value); return this; }
+    public Intent putExtra(String key, android.os.Parcelable value) { extras.put(key,value); return this; }
     public boolean getBooleanExtra(String key, boolean fallback) {
         Object v=extras.get(key); return v==null ? fallback : ((Boolean) v).booleanValue();
     }

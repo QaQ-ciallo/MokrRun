@@ -125,10 +125,10 @@ public final class MotionEngine {
         }
     }
 
-    private static void fireResultReceiver(String op, String session, String token, boolean ok,
-                                           String reason) {
+    private static boolean fireResultReceiver(String op, String session, String token, boolean ok,
+                                              String reason) {
         Object rr = sAckReceiver;
-        if (rr == null) return;
+        if (rr == null) return false;
         try {
             android.os.Bundle b = new android.os.Bundle();
             b.putString("op", op == null ? OP_CONFIRM : op);
@@ -151,11 +151,14 @@ public final class MotionEngine {
             }
             if (m != null) {
                 m.invoke(rr, Integer.valueOf(0), b);
-                XposedBridge.log(TAG + ": ack via ResultReceiver op=" + op);
+                XposedBridge.log(TAG + ": ack via ResultReceiver op=" + op
+                        + " session=" + session + " ok=" + ok);
+                return true;
             }
         } catch (Throwable t) {
             XposedBridge.log(TAG + ": ResultReceiver callback failed " + t);
         }
+        return false;
     }
     private static volatile String sConfirmedRoute = "";
     /** 会话操作名：两条入口（广播 / Intent）共用，避免入口层互相依赖 */
@@ -782,6 +785,7 @@ public final class MotionEngine {
         sSessionEnabled = false;
         sRouteConfirmed = false;
         sAppliedToken = "";
+        sAckReceiver = null;
         sMode = MODE_OFF;
         sIntentMode = true;
         sRunCheckedAt = System.currentTimeMillis();
@@ -868,64 +872,31 @@ public final class MotionEngine {
 
     private static void sendAck(final String session, final String token, final boolean ok,
                                 final String reason, final String kind) {
+        final String k = kind == null ? OP_CONFIRM : kind;
+        // 关键路径：ResultReceiver（binder 回调）。失败才发一次广播兜底，不再重试、
+        // 不再走 Provider（实机证明该通道在本设备上必然失败，重试只是拖慢确认）。
+        if (fireResultReceiver(k, session, token, ok, reason)) return;
         final android.content.Context ctx = ackContext();
         if (ctx == null) {
-            XposedBridge.log(TAG + ": ack skipped (no context) op=" + kind);
+            XposedBridge.log(TAG + ": ack undelivered (no context, no receiver) op=" + k);
             return;
         }
-        final String k = kind == null ? OP_CONFIRM : kind;
-        fireResultReceiver(k, session, token, ok, reason);
-        final android.content.Intent intent = new android.content.Intent(ACTION_ACK);
-        intent.setPackage("com.mokrun.app");
-        intent.setClassName("com.mokrun.app", "com.mokrun.app.AckReceiver");
-        intent.putExtra("op", k);
-        intent.putExtra("session", session == null ? "" : session);
-        intent.putExtra("token", token == null ? "" : token);
-        intent.putExtra("ok", ok);
-        intent.putExtra("mode", sMode);
-        intent.putExtra("at", System.currentTimeMillis());
-        if (reason != null) intent.putExtra("reason", reason);
-
-        // 回执必须「尽力送达」：模块 App 刚被拉起时 Provider 还没发布（实测
-        // Unknown authority）、广播也会被排队，所以两种通道都重试几次。
-        new Thread(new Runnable() {
-            @Override public void run() {
-                for (int attempt = 0; attempt < 4; attempt++) {
-                    boolean delivered = false;
-                    try {
-                        android.os.Bundle b = new android.os.Bundle();
-                        b.putString("op", k);
-                        b.putString("session", session == null ? "" : session);
-                        b.putString("token", token == null ? "" : token);
-                        b.putBoolean("ok", ok);
-                        b.putInt("mode", sMode);
-                        b.putLong("at", System.currentTimeMillis());
-                        if (reason != null) b.putString("reason", reason);
-                        android.os.Bundle r = ctx.getContentResolver().call(
-                                android.net.Uri.parse("content://com.mokrun.app.config"),
-                                "ack", null, b);
-                        delivered = r != null && r.getBoolean("received");
-                    } catch (Throwable t) {
-                        if (attempt == 3) {
-                            XposedBridge.log(TAG + ": ack provider failed " + t);
-                        }
-                    }
-                    try {
-                        ctx.sendBroadcast(intent);
-                    } catch (Throwable ignored) {
-                    }
-                    XposedBridge.log(TAG + ": ack attempt=" + (attempt + 1)
-                            + " op=" + k + " provider=" + delivered
-                            + " session=" + session);
-                    if (delivered) return;
-                    try {
-                        Thread.sleep(400L + attempt * 400L);
-                    } catch (Throwable ignored) {
-                    }
-                }
-                XposedBridge.log(TAG + ": ack undelivered op=" + k + " session=" + session);
-            }
-        }, "mokr-ack").start();
+        try {
+            android.content.Intent i = new android.content.Intent(ACTION_ACK);
+            i.setPackage("com.mokrun.app");
+            i.setClassName("com.mokrun.app", "com.mokrun.app.AckReceiver");
+            i.putExtra("op", k);
+            i.putExtra("session", session == null ? "" : session);
+            i.putExtra("token", token == null ? "" : token);
+            i.putExtra("ok", ok);
+            i.putExtra("mode", sMode);
+            i.putExtra("at", System.currentTimeMillis());
+            if (reason != null) i.putExtra("reason", reason);
+            ctx.sendBroadcast(i);
+            XposedBridge.log(TAG + ": ack broadcast fallback op=" + k + " session=" + session);
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": ack broadcast failed " + t);
+        }
     }
 
     /** 只解析并应用参数（speed/cadence/stride/sat/qr/spdmax/rs/alt/acc），不碰路线与状态 */
