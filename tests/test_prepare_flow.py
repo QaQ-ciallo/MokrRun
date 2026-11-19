@@ -295,6 +295,122 @@ public class PrepareFlowRegression {
             check(Math.abs(RouteDraft.toleranceM(10) - 50.0) < 0.001, "tolerance floor wrong");
             check(Math.abs(RouteDraft.toleranceM(40) - 120.0) < 0.001, "tolerance scale wrong");
 
+        } else if (which.equals("confirm_initializes_position_and_segment")) {
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            android.location.Location cur = MotionEngine.current();
+            check(Math.abs(cur.getLatitude() - 30.0) < 1e-9,
+                    "confirm 后当前位置未初始化：lat=" + cur.getLatitude());
+            check(Math.abs(cur.getLongitude() - 120.0) < 1e-9,
+                    "confirm 后当前位置未初始化：lon=" + cur.getLongitude());
+            check(i("sSeg") == 0, "confirm 后段索引未重置：" + i("sSeg"));
+            tickAfter(250L);
+            check(d("sDistTotal") < 3.0, "首个 tick 出现跳跃：" + d("sDistTotal"));
+
+        } else if (which.equals("short_route_after_long_no_overflow")) {
+            String longRoute = "[{\"lat\":30.001,\"lng\":120.0},{\"lat\":30.002,\"lng\":120.0},"
+                    + "{\"lat\":30.003,\"lng\":120.0},{\"lat\":30.004,\"lng\":120.0}]";
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, longRoute) == null, "long confirm failed");
+            for (int k = 0; k < 200; k++) tickAfter(250L);
+            check(i("sSeg") > 0, "long route never advanced past seg 0");
+            MotionEngine.endSession();
+            MotionEngine.prepareSession("s2", CFG);
+            check(MotionEngine.applyConfirm("s2", "t2", CFG, ORIGIN,
+                    "[{\"lat\":30.0005,\"lng\":120.0}]") == null, "short confirm failed");
+            for (int k = 0; k < 8; k++) tickAfter(250L);   // 不允许抛 ArrayIndexOutOfBounds
+            check(d("sDistTotal") > 5.0, "short route did not advance: " + d("sDistTotal"));
+            check(MotionEngine.steps() > 0, "short route produced no steps");
+
+        } else if (which.equals("provider_does_not_replace_confirmed_route")) {
+            Context ctx = new Context();
+            ctx.resolver.row = new Cursor(Float.valueOf(4.8f), Float.valueOf(3.12f),
+                    Float.valueOf(1.538f), Integer.valueOf(1), ORIGIN, ROUTE, Integer.valueOf(1));
+            MotionEngine.configure(ctx);
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            tickAfter(1000L);
+            double dist = d("sDistTotal");
+            // prefs 里换成另一条路线（模拟「保存过别的路线」或旧配置）
+            ctx.resolver.row = new Cursor(Float.valueOf(4.8f), Float.valueOf(3.12f),
+                    Float.valueOf(1.538f), Integer.valueOf(1), "31.0,121.0",
+                    "[{\"lat\":31.01,\"lng\":121.0},{\"lat\":31.02,\"lng\":121.0}]",
+                    Integer.valueOf(1));
+            set("sRunCheckedAt", Long.valueOf(0L));
+            tickAfter(250L);
+            check(d("sDistTotal") >= dist, "provider 轮询把进度清零了");
+            check(Math.abs(d("sDistTotal") - dist) < 5.0, "provider 轮询换了路线导致位置跳变");
+            android.location.Location cur = MotionEngine.current();
+            check(Math.abs(cur.getLatitude() - 31.0) > 0.5, "路线被 prefs 里的旧路线替换了");
+
+        } else if (which.equals("pause_command_does_not_replace_route")) {
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            tickAfter(1000L);
+            double dist = d("sDistTotal");
+            int seg = i("sSeg");
+            // 悬浮窗暂停：历史实现会带上 prefs 里的起点/路线
+            MotionEngine.applyFromIntent(CFG, "31.0,121.0",
+                    "[{\"lat\":31.01,\"lng\":121.0},{\"lat\":31.02,\"lng\":121.0}]", 2);
+            check(readMode() == 2, "pause 未生效");
+            check(Math.abs(d("sDistTotal") - dist) < 1e-9, "pause 重置了里程");
+            check(i("sSeg") == seg, "pause 换了路线段");
+            MotionEngine.setMode(1);
+            tickAfter(250L);
+            check(Math.abs(MotionEngine.current().getLatitude() - 31.0) > 0.5,
+                    "pause 把路线换成了 prefs 里的旧路线");
+
+        } else if (which.equals("second_confirm_same_session_rejected")) {
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            for (int k = 0; k < 3; k++) tickAfter(250L);
+            long steps = MotionEngine.steps();
+            check(steps > 0, "没有步数可用于判断");
+            String err = MotionEngine.applyConfirm("s1", "t2", CFG, ORIGIN, ROUTE);
+            check(err != null, "换 token 后同一会话被允许重复启动");
+            check(MotionEngine.steps() == steps, "重复确认把步数清零了：" + MotionEngine.steps());
+            check(readMode() == 1, "重复确认改变了模式");
+
+        } else if (which.equals("stale_freeze_timeout_ignored")) {
+            MotionEngine.prepareSession("s1", CFG);
+            check(MotionEngine.applyConfirm("s1", "t1", CFG, ORIGIN, ROUTE) == null, "confirm failed");
+            MotionEngine.freezeForFace();
+            check(readMode() == 2, "冻结未生效");
+            MotionEngine.endSession();
+            // 旧超时到点时会调用 resumeAfterFace：不得把状态改回 RUNNING
+            MotionEngine.resumeAfterFace();
+            check(readMode() == 0, "会话结束后旧冻结恢复把状态改了：" + readMode());
+            check(!MotionEngine.shouldOverridePosition(), "旧冻结恢复重新接管了位置");
+
+        } else if (which.equals("rejected_confirm_sends_failure_ack")) {
+            Context ctx = new Context();
+            ctx.resolver.row = new Cursor(Float.valueOf(4.8f), Float.valueOf(3.12f),
+                    Float.valueOf(1.538f), Integer.valueOf(1), ORIGIN, ROUTE, Integer.valueOf(3));
+            MotionEngine.configure(ctx);
+            MotionEngine.prepareSession("s1", CFG);
+            Context.SentBroadcasts.clear();
+            String err = MotionEngine.applyConfirm("s1", "t1", CFG, "abc", ROUTE);
+            check(err != null, "非法路线未被拒绝");
+            check(!Context.SentBroadcasts.isEmpty(), "拒绝确认没有发出任何回执");
+            Intent last = Context.SentBroadcasts.get(Context.SentBroadcasts.size() - 1);
+            check("com.mokrun.app.ACK".equals(last.getAction()), "回执 action 不对");
+            check(!last.getBooleanExtra("ok", true), "回执没有标记失败");
+            check(last.getStringExtra("reason") != null, "回执没有带拒绝原因");
+
+        } else if (which.equals("draft_origin_uses_lon_field")) {
+            org.json.JSONObject originObj = new org.json.JSONObject()
+                    .put("lat", 30.1).put("lon", 120.2);
+            org.json.JSONObject routeObj = new org.json.JSONObject().put("origin", originObj);
+            check("30.1,120.2".equals(RouteDraft.originFromRouteJson(routeObj)),
+                    "路线 JSON 的 lon 字段没有被正确读取");
+            org.json.JSONObject legacy = new org.json.JSONObject()
+                    .put("lat", 30.1).put("lng", 120.2);
+            check("30.1,120.2".equals(RouteDraft.originFromRouteJson(
+                    new org.json.JSONObject().put("origin", legacy))), "兼容 lng 字段失败");
+            org.json.JSONObject bad = new org.json.JSONObject().put("lon", 120.2);
+            check(RouteDraft.originFromRouteJson(new org.json.JSONObject().put("origin", bad)) == null,
+                    "非法起点未被拒绝");
+            check(RouteDraft.parseDraftOrigin("") == null, "空草稿起点未被拒绝");
         } else {
             throw new IllegalArgumentException(which);
         }
@@ -334,6 +450,14 @@ CASES = [
     "session_mismatch_rejected",
     # 草稿校验（形状/新鲜度/连续性容差）
     "route_draft_rules",
+    "confirm_initializes_position_and_segment",
+    "short_route_after_long_no_overflow",
+    "provider_does_not_replace_confirmed_route",
+    "pause_command_does_not_replace_route",
+    "second_confirm_same_session_rejected",
+    "stale_freeze_timeout_ignored",
+    "rejected_confirm_sends_failure_ack",
+    "draft_origin_uses_lon_field",
     # 定位按钮的请求状态机
 
 ]
@@ -361,7 +485,7 @@ def main():
             failures += 1
             reason = next((line.strip() for line in (run.stdout + run.stderr).splitlines()
                            if "AssertionError" in line or "Exception" in line), "see log")
-            print(f"FAIL {case}: {reason}")
+            print(f"FAIL {case}: {reason.encode(chr(97)+chr(115)+chr(99)+chr(105)+chr(105), chr(114)+chr(101)+chr(112)+chr(108)+chr(97)+chr(99)+chr(101)).decode(chr(97)+chr(115)+chr(99)+chr(105)+chr(105))}")
         else:
             print(f"PASS {case}")
 

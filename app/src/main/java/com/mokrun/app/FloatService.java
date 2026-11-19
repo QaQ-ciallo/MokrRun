@@ -286,9 +286,8 @@ public class FloatService extends Service {
             // （日志：No provider info ... when providerRunning is false），
             // 广播是一次性直投，没有这个问题，所以把它做成配置的第二通道。
             i.putExtra("cfg", ConfigSync.buildLine(this));
-            double[] o = Store.origin(this);
-            i.putExtra("origin", o == null ? "" : (o[0] + "," + o[1]));
-            i.putExtra("route", ConfigSync.waypointsJson(this));
+            // 暂停/继续/结束只改状态，绝不带起点与路线：
+            // 带了就会被当作一次「新配置」，把已确认的路线换回 prefs 里的旧路线并清零进度。
             sendBroadcast(i);
             android.util.Log.i("MokrRunFloat", "command sent mode=" + mode);
         } catch (Throwable t) {

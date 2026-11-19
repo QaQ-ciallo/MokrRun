@@ -43,6 +43,22 @@ public final class RouteDraft {
 
     private RouteDraft() {}
 
+    /** 路线 JSON 的起点字段是 lon；兼容早期写成 lng 的数据 */
+    public static String originFromRouteJson(org.json.JSONObject route) {
+        if (route == null) return null;
+        org.json.JSONObject o = route.optJSONObject("origin");
+        if (o == null) return null;
+        double lat = o.optDouble("lat", Double.NaN);
+        double lon = o.optDouble("lon", o.optDouble("lng", Double.NaN));
+        if (!validCoord(lat, lon)) return null;
+        return lat + "," + lon;
+    }
+
+    /** 草存储里的起点字符串；空/非法返回 null */
+    public static String parseDraftOrigin(String draft) {
+        return parseOrigin(draft) == null ? null : draft.trim();
+    }
+
     /** 起点到当前位置的平面距离（米） */
     public static double distanceM(double lat1, double lon1, double lat2, double lon2) {
         double R = 6371000.0;

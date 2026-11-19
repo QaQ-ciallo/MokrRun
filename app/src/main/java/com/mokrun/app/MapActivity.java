@@ -23,6 +23,15 @@ public class MapActivity extends Activity {
 
     public static final String EXTRA_DRAFT = "draft";
 
+    /** 草稿模式取草稿起点，否则取活动起点 */
+    private double[] draftOrigin() {
+        if (getIntent().getBooleanExtra(EXTRA_DRAFT, false)) {
+            double[] p = com.mokrun.app.data.RouteDraft.parseOrigin(Store.draftOrigin(this));
+            if (p != null) return p;
+        }
+        return Store.origin(this);
+    }
+
     private WebView web;
     private double originLat = 0, originLon = 0;
 
@@ -31,7 +40,8 @@ public class MapActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_map);
 
-        double[] o = Store.origin(this);
+        // 草稿模式下必须沿用草稿起点（否则改完起点再画线会被活动路线覆盖）
+        double[] o = draftOrigin();
         if (o != null) {
             originLat = o[0];
             originLon = o[1];
@@ -61,6 +71,8 @@ public class MapActivity extends Activity {
         try {
             JSONObject src = new JSONObject(json);
             JSONObject origin = src.optJSONObject("origin");
+            // 路线 JSON 的起点字段是 lon（不是 lng），lng 只用于途经点
+
             JSONArray pts = src.optJSONArray("points");
             if (origin == null || pts == null || pts.length() < 2) {
                 Toast.makeText(this, "至少需要 2 个途经点", Toast.LENGTH_SHORT).show();
@@ -77,8 +89,8 @@ public class MapActivity extends Activity {
 
             if (getIntent().getBooleanExtra(EXTRA_DRAFT, false)) {
                 // 草稿模式：只保存草稿，不写历史、不下发、不改目标位置
-                Store.setDraftOrigin(this, origin.optDouble("lat", 0) + ","
-                        + origin.optDouble("lng", 0));
+                Store.setDraftOrigin(this,
+                        origin.optDouble("lat", 0) + "," + origin.optDouble("lon", 0));
                 Store.setDraftWaypointsJson(this, pts.toString());
                 Toast.makeText(this, "路线已写入草稿（未生效）", Toast.LENGTH_SHORT).show();
                 setResult(RESULT_OK);

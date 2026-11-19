@@ -100,6 +100,9 @@ public class MainActivity extends Activity {
         boolean sent;
         if (ConfigSync.isTargetRunning(this)) {
             sent = ConfigSync.sendPrepare(this, session);
+            // 已在前台时广播只更新状态，必须再显式把体适能切到前台，
+            // 否则用户点完「启用」还停在模块首页。
+            if (sent) ConfigSync.bringTargetToFront(this);
         } else {
             sent = ConfigSync.launchPrepared(this, session);
         }
@@ -116,10 +119,8 @@ public class MainActivity extends Activity {
     /** 从历史路线建立**草稿**（不改变正在运行的位置，也不立即生效） */
     private void openDraftFromHistory(JSONObject r) {
         try {
-            JSONObject o = r.optJSONObject("origin");
-            if (o != null) {
-                Store.setDraftOrigin(this, o.optDouble("lat", 0) + "," + o.optDouble("lng", 0));
-            }
+            String draftOrigin = RouteDraft.originFromRouteJson(r);
+            if (draftOrigin != null) Store.setDraftOrigin(this, draftOrigin);
             JSONArray pts = r.optJSONArray("points");
             if (pts != null) Store.setDraftWaypointsJson(this, pts.toString());
             Store.setDraftName(this, r.optString("name", ""));

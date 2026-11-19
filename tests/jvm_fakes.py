@@ -503,6 +503,7 @@ package org.json;
 import java.util.*;
 public class JSONObject {
     final Map<String,Double> values=new HashMap<String,Double>();
+    final Map<String,JSONObject> objects=new HashMap<String,JSONObject>();
     public double getDouble(String key) {
         if (!values.containsKey(key)) throw new IllegalArgumentException(key);
         return values.get(key).doubleValue();
@@ -511,6 +512,8 @@ public class JSONObject {
         Double v=values.get(key); return v==null ? fallback : v.doubleValue();
     }
     public JSONObject put(String key, double value) { values.put(key, Double.valueOf(value)); return this; }
+    public JSONObject put(String key, JSONObject value) { objects.put(key, value); return this; }
+    public JSONObject optJSONObject(String key) { return objects.get(key); }
 }
 """,
     "org/json/JSONArray.java": r"""
