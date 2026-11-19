@@ -547,15 +547,25 @@ public final class MotionEngine {
         applyCfgParams(cfg);
         // 路线只对「开始/继续」有意义；暂停(2)与结束(0)携带的 origin/route
         // 一律忽略，否则悬浮窗命令会把已确认的路线换回 prefs 里的旧路线并清零进度。
-        boolean routeClears = (waypoints == null || waypoints.trim().length() <= 4)
-                && (origin == null || origin.trim().length() == 0);
-        // 新会话尚未确认时的控制命令：暂停属于迟到/旁路命令，直接忽略，
-        // 既不确认旧路线也不改状态（结束 run=0 仍允许，用于正常收尾）。
-        if (sSessionEnabled && !sRouteConfirmed && run == MODE_PAUSED) {
-            XposedBridge.log(TAG + ": pause ignored during unconfirmed session");
-            sIntentMode = true;
-            sRunCheckedAt = System.currentTimeMillis();
-            return;
+        // 字段缺失 ≠ 显式空值：悬浮窗的暂停/继续只带 cfg + mode，origin/route 是 null，
+        // 不能因此当成「清除」。只有「结束(run=0) + 两个字段显式给空」才是旧式清除。
+        boolean originAbsent = origin == null;
+        boolean routeAbsent = waypoints == null;
+        boolean bothEmpty = (origin == null || origin.trim().length() == 0)
+                && (waypoints == null || waypoints.trim().length() <= 4);
+        boolean routeClears = (run == MODE_OFF) && bothEmpty && !(originAbsent && routeAbsent);
+        // 新会话尚未确认：旧式命令（开始/暂停）一律不得授予或改变确认状态
+        if (sSessionEnabled && !sRouteConfirmed) {
+            if (run == MODE_RUNNING) {
+                XposedBridge.log(TAG + ": legacy start rejected (session unconfirmed, need CONFIRM)");
+                return;
+            }
+            if (run == MODE_PAUSED) {
+                XposedBridge.log(TAG + ": pause ignored during unconfirmed session");
+                sIntentMode = true;
+                sRunCheckedAt = System.currentTimeMillis();
+                return;
+            }
         }
         boolean legacyNoSession = !sSessionEnabled || sRouteConfirmed;
         boolean routeAllowed = (run == MODE_RUNNING) || routeClears;
