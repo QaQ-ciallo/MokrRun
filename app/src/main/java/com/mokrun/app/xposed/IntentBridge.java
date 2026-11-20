@@ -63,30 +63,54 @@ public final class IntentBridge {
         }
     }
 
-    private static void read(Intent it, String from) {
+    /**
+     * 读我们的 extras：**读写都在宿主默认加载器之上，读完立刻还原**。
+     *
+     * 不能用 setExtrasClassLoader 长期留在宿主 Intent 上（1.0.153 闪退根因：
+     * FaceLiveV3Activity 读自己的 PointData 时用了模块的 InMemoryDexFile 加载器）；
+     * 也不能只拷一份 Bundle 去读（LazyValue 仍绑定原 Bundle，回执句柄反序列化失败，
+     * 表现为「模块一直未启用」）。
+     */
+    /** 是否携带模块自己的 key：不是我们的 Intent 一律不碰 */
+    private static boolean isOurs(android.os.Bundle raw) {
         try {
-            if (it == null) return;
-            // 必须在读取**任何** extras 之前设置：extras 里可能含模块 APK 的 Parcelable
-            try {
-                it.setExtrasClassLoader(MotionEngine.class.getClassLoader());
-            } catch (Throwable ignored) {
-            }
-            String op = it.getStringExtra(EX_OP);
-            String session = it.getStringExtra(EX_SESSION);
-            String token = it.getStringExtra(EX_TOKEN);
-            String cfg = it.getStringExtra(EX_CFG);
-            String origin = it.getStringExtra(EX_ORIGIN);
-            String route = it.getStringExtra(EX_ROUTE);
-            int run = it.getIntExtra(EX_RUN, 0);
+            return raw.containsKey(EX_OP) || raw.containsKey(EX_CFG)
+                    || raw.containsKey(EX_RUN) || raw.containsKey("mokr_rr");
+        } catch (Throwable t) {
+            return false;
+        }
+    }
 
-            // 模块把 ResultReceiver 句柄放在 extras 里：拿到后引擎在状态切换完成时直接回调
+    private static void read(Intent it, String from) {
+        if (it == null) return;
+        android.os.Bundle raw = null;
+        ClassLoader prev = null;
+        boolean touched = false;
+        try {
+            raw = it.getExtras();
+            if (raw == null || !isOurs(raw)) return;   // 不是我们的 Intent，直接不碰
+
+            // 读完必须还原：否则模块的 InMemoryDexFile 加载器会留在宿主 Intent 上，
+            // 应用之后读自己的 Parcelable 就 ClassNotFound（1.0.153 闪退根因）。
+            prev = raw.getClassLoader();
+            raw.setClassLoader(MotionEngine.class.getClassLoader());
+            touched = true;
+
+            final android.os.Bundle b = raw;
+            String op = b.getString(EX_OP);
+            String session = b.getString(EX_SESSION);
+            String token = b.getString(EX_TOKEN);
+            String cfg = b.getString(EX_CFG);
+            String origin = b.getString(EX_ORIGIN);
+            String route = b.getString(EX_ROUTE);
+            int run = b.getInt(EX_RUN, 0);
+
             try {
-                android.os.Parcelable rr = it.getParcelableExtra("mokr_rr");
+                android.os.Parcelable rr = b.getParcelable("mokr_rr");
                 if (rr != null) MotionEngine.setAckReceiver(rr);
             } catch (Throwable t) {
                 XposedBridge.log(TAG + ": read result receiver failed " + t);
             }
-
             if (MotionEngine.OP_PREPARE.equals(op)) {
                 MotionEngine.prepareSession(session, cfg);
                 XposedBridge.log(TAG + ": config via Intent (" + from + ") op=prepare session="
@@ -113,6 +137,13 @@ public final class IntentBridge {
                     + " routeLen=" + (route == null ? 0 : route.length()));
         } catch (Throwable t) {
             XposedBridge.log(TAG + ": intent read failed " + t);
+        } finally {
+            if (touched) {
+                try {
+                    raw.setClassLoader(prev);
+                } catch (Throwable ignored) {
+                }
+            }
         }
     }
 }
