@@ -93,6 +93,16 @@ public class ClassLoaderRegression {
             check(it.getExtras().getClassLoader() == null,
                     "host extras classloader was left pointing at the module loader");
 
+        } else if (which.equals("restores_previous_loader")) {
+            Intent it = new Intent();
+            ClassLoader hostLoader = ClassLoaderRegression.class.getClassLoader();
+            it.setExtrasClassLoader(hostLoader);
+            it.putExtra("mokr_op", "prepare");
+            it.putExtra("mokr_rr", new OurHandle());
+            read(it);
+            check(it.getExtras().getClassLoader() == hostLoader,
+                    "after our read the host loader was not restored");
+
         } else if (which.equals("host_reads_own_parcelable_after_our_read")) {
             Intent it = new Intent();
             it.putExtra("mokr_op", "prepare");
@@ -113,6 +123,7 @@ public class ClassLoaderRegression {
 
 CASES = [
     "foreign_intent_untouched",
+    "restores_previous_loader",
     "our_intent_keeps_host_loader",
     "host_reads_own_parcelable_after_our_read",
 ]

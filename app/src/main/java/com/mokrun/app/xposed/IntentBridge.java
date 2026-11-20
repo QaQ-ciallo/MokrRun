@@ -64,40 +64,39 @@ public final class IntentBridge {
     }
 
     /**
-     * 取一份**只属于我们自己的** extras 副本。
+     * 读我们的 extras：**读写都在宿主默认加载器之上，读完立刻还原**。
      *
-     * 关键：绝不能对宿主 Activity 的 Intent 调 setExtrasClassLoader —— 该 Intent 会被应用
-     * 复用/复制（例如 getIntent() 再 startActivity），模块的 InMemoryDexFile 类加载器
-     * 一旦留在上面，应用之后读自己的 Parcelable 就会 ClassNotFoundException
-     * （实机 1.0.153 复现：FaceLiveV3Activity 启动即崩，PointData 反序列化失败）。
+     * 不能用 setExtrasClassLoader 长期留在宿主 Intent 上（1.0.153 闪退根因：
+     * FaceLiveV3Activity 读自己的 PointData 时用了模块的 InMemoryDexFile 加载器）；
+     * 也不能只拷一份 Bundle 去读（LazyValue 仍绑定原 Bundle，回执句柄反序列化失败，
+     * 表现为「模块一直未启用」）。
      */
-    private static android.os.Bundle probeExtras(Intent it) {
+    /** 是否携带模块自己的 key：不是我们的 Intent 一律不碰 */
+    private static boolean isOurs(android.os.Bundle raw) {
         try {
-            android.os.Bundle raw = it.getExtras();
-            if (raw == null) return null;
-            boolean ours;
-            try {
-                ours = raw.containsKey(EX_OP) || raw.containsKey(EX_CFG)
-                        || raw.containsKey(EX_RUN) || raw.containsKey("mokr_rr");
-            } catch (Throwable t) {
-                return null;
-            }
-            if (!ours) return null;
-            // 拷贝一份，类加载器只设在副本上，原 Bundle 保持宿主默认
-            android.os.Bundle probe = new android.os.Bundle(raw);
-            probe.setClassLoader(MotionEngine.class.getClassLoader());
-            return probe;
+            return raw.containsKey(EX_OP) || raw.containsKey(EX_CFG)
+                    || raw.containsKey(EX_RUN) || raw.containsKey("mokr_rr");
         } catch (Throwable t) {
-            XposedBridge.log(TAG + ": probe extras failed " + t);
-            return null;
+            return false;
         }
     }
 
     private static void read(Intent it, String from) {
+        if (it == null) return;
+        android.os.Bundle raw = null;
+        ClassLoader prev = null;
+        boolean touched = false;
         try {
-            if (it == null) return;
-            final android.os.Bundle b = probeExtras(it);
-            if (b == null) return;                 // 不是我们的 Intent，直接不碰
+            raw = it.getExtras();
+            if (raw == null || !isOurs(raw)) return;   // 不是我们的 Intent，直接不碰
+
+            // 读完必须还原：否则模块的 InMemoryDexFile 加载器会留在宿主 Intent 上，
+            // 应用之后读自己的 Parcelable 就 ClassNotFound（1.0.153 闪退根因）。
+            prev = raw.getClassLoader();
+            raw.setClassLoader(MotionEngine.class.getClassLoader());
+            touched = true;
+
+            final android.os.Bundle b = raw;
             String op = b.getString(EX_OP);
             String session = b.getString(EX_SESSION);
             String token = b.getString(EX_TOKEN);
@@ -138,6 +137,13 @@ public final class IntentBridge {
                     + " routeLen=" + (route == null ? 0 : route.length()));
         } catch (Throwable t) {
             XposedBridge.log(TAG + ": intent read failed " + t);
+        } finally {
+            if (touched) {
+                try {
+                    raw.setClassLoader(prev);
+                } catch (Throwable ignored) {
+                }
+            }
         }
     }
 }
