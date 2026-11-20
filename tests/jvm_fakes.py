@@ -197,6 +197,8 @@ public class Handler {
     "android/os/ResultReceiver.java": """
 package android.os;
 public abstract class ResultReceiver implements Parcelable {
+    public ResultReceiver() {}
+    public ResultReceiver(Handler h) {}
     protected abstract void onReceiveResult(int resultCode, Bundle resultData);
     public void send(int resultCode, Bundle resultData) { onReceiveResult(resultCode, resultData); }
 }
@@ -209,12 +211,32 @@ public class Bundle {
     public void putString(String k, String v) { map.put(k,v); }
     public void putBoolean(String k, boolean v) { map.put(k,v); }
     public void putLong(String k, long v) { map.put(k,v); }
+    public void putParcelable(String k, android.os.Parcelable v) { map.put(k,v); }
     public String getString(String k, String d) { Object v=map.get(k); return v==null?d:(String)v; }
     public String getString(String k) { return getString(k, null); }
     public boolean getBoolean(String k, boolean d) { Object v=map.get(k); return v==null?d:((Boolean)v).booleanValue(); }
     public boolean getBoolean(String k) { return getBoolean(k, false); }
     public long getLong(String k, long d) { Object v=map.get(k); return v==null?d:((Long)v).longValue(); }
-    public boolean containsKey(String k) { return map.containsKey(k); }
+    public java.util.Set<String> keySet() {
+        java.util.Set<String> all = new java.util.HashSet<String>(map.keySet());
+        all.addAll(values.keySet());
+        return all;
+    }
+    public boolean containsKey(String k) {
+        return map.containsKey(k) || values.containsKey(k);
+    }
+    // 与真机对齐：Bundle 记住自己的类加载器，Intent.setExtrasClassLoader 会改到 Bundle 上
+    private ClassLoader classLoader;
+    public void setClassLoader(ClassLoader cl) { classLoader = cl; }
+    public ClassLoader getClassLoader() { return classLoader; }
+    public Bundle() {}
+    public Bundle(Bundle o) {
+        if (o != null) { map.putAll(o.map); values.putAll(o.values); classLoader = o.classLoader; }
+    }
+    @SuppressWarnings("unchecked")
+    public <T extends android.os.Parcelable> T getParcelable(String k) {
+        return (T) map.get(k);
+    }
     final Map<String,Object> values=new HashMap<String,Object>();
     public void putInt(String key, int value) { values.put(key, Integer.valueOf(value)); }
     public int getInt(String key, int fallback) {
@@ -302,36 +324,29 @@ public class Context {
 package android.content;
 import java.util.*;
 public class Intent {
-    final Map<String,Object> extras=new HashMap<String,Object>();
-    String action; String pkg;
+    final android.os.Bundle extras = new android.os.Bundle();
+    String action; String pkg; String cls;
     public Intent() {}
-    public Intent(String action) { this.action=action; }
-    public Intent setPackage(String p) { pkg=p; return this; }
-    String cls;
-    public Intent setClassName(String pkg, String cls) { this.pkg=pkg; this.cls=cls; return this; }
+    public Intent(String action) { this.action = action; }
+    public Intent setPackage(String p) { pkg = p; return this; }
+    public Intent setClassName(String pkg, String cls) { this.pkg = pkg; this.cls = cls; return this; }
     public String getComponentClassName() { return cls; }
     public String getPackage() { return pkg; }
     public String getAction() { return action; }
-    public Intent putExtra(String key, String value) { extras.put(key,value); return this; }
-    public Intent putExtra(String key, int value) { extras.put(key,value); return this; }
-    public Intent putExtra(String key, boolean value) { extras.put(key,value); return this; }
-    public String getStringExtra(String key) { return (String)extras.get(key); }
-    public Intent setExtrasClassLoader(ClassLoader cl) { return this; }
-    @SuppressWarnings("unchecked")
-    public <T extends android.os.Parcelable> T getParcelableExtra(String key) { return (T) extras.get(key); }
-    public int getIntExtra(String key, int fallback) {
-        Object v=extras.get(key); return v==null ? fallback : ((Integer) v).intValue();
-    }
-    public long getLongExtra(String key, long fallback) {
-        Object v=extras.get(key); return v==null ? fallback : ((Long) v).longValue();
-    }
-    public Intent putExtra(String key, long value) { extras.put(key,value); return this; }
-    public Intent putExtra(String key, android.os.Parcelable value) { extras.put(key,value); return this; }
-    public boolean getBooleanExtra(String key, boolean fallback) {
-        Object v=extras.get(key); return v==null ? fallback : ((Boolean) v).booleanValue();
-    }
+    public Intent putExtra(String key, String value) { extras.putString(key, value); return this; }
+    public Intent putExtra(String key, int value) { extras.putInt(key, value); return this; }
+    public Intent putExtra(String key, boolean value) { extras.putBoolean(key, value); return this; }
+    public Intent putExtra(String key, long value) { extras.putLong(key, value); return this; }
+    public Intent putExtra(String key, android.os.Parcelable value) { extras.putParcelable(key, value); return this; }
+    public String getStringExtra(String key) { return extras.getString(key); }
+    public int getIntExtra(String key, int fallback) { return extras.getInt(key, fallback); }
+    public boolean getBooleanExtra(String key, boolean fallback) { return extras.getBoolean(key, fallback); }
+    public long getLongExtra(String key, long fallback) { return extras.getLong(key, fallback); }
+    public Intent setExtrasClassLoader(ClassLoader cl) { extras.setClassLoader(cl); return this; }
+    public android.os.Bundle getExtras() { return extras; }
 }
 """,
+
     # ---- android.hardware -------------------------------------------------
     "android/hardware/Sensor.java": """
 package android.hardware;

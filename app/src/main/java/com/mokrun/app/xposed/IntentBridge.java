@@ -63,30 +63,55 @@ public final class IntentBridge {
         }
     }
 
+    /**
+     * 取一份**只属于我们自己的** extras 副本。
+     *
+     * 关键：绝不能对宿主 Activity 的 Intent 调 setExtrasClassLoader —— 该 Intent 会被应用
+     * 复用/复制（例如 getIntent() 再 startActivity），模块的 InMemoryDexFile 类加载器
+     * 一旦留在上面，应用之后读自己的 Parcelable 就会 ClassNotFoundException
+     * （实机 1.0.153 复现：FaceLiveV3Activity 启动即崩，PointData 反序列化失败）。
+     */
+    private static android.os.Bundle probeExtras(Intent it) {
+        try {
+            android.os.Bundle raw = it.getExtras();
+            if (raw == null) return null;
+            boolean ours;
+            try {
+                ours = raw.containsKey(EX_OP) || raw.containsKey(EX_CFG)
+                        || raw.containsKey(EX_RUN) || raw.containsKey("mokr_rr");
+            } catch (Throwable t) {
+                return null;
+            }
+            if (!ours) return null;
+            // 拷贝一份，类加载器只设在副本上，原 Bundle 保持宿主默认
+            android.os.Bundle probe = new android.os.Bundle(raw);
+            probe.setClassLoader(MotionEngine.class.getClassLoader());
+            return probe;
+        } catch (Throwable t) {
+            XposedBridge.log(TAG + ": probe extras failed " + t);
+            return null;
+        }
+    }
+
     private static void read(Intent it, String from) {
         try {
             if (it == null) return;
-            // 必须在读取**任何** extras 之前设置：extras 里可能含模块 APK 的 Parcelable
-            try {
-                it.setExtrasClassLoader(MotionEngine.class.getClassLoader());
-            } catch (Throwable ignored) {
-            }
-            String op = it.getStringExtra(EX_OP);
-            String session = it.getStringExtra(EX_SESSION);
-            String token = it.getStringExtra(EX_TOKEN);
-            String cfg = it.getStringExtra(EX_CFG);
-            String origin = it.getStringExtra(EX_ORIGIN);
-            String route = it.getStringExtra(EX_ROUTE);
-            int run = it.getIntExtra(EX_RUN, 0);
+            final android.os.Bundle b = probeExtras(it);
+            if (b == null) return;                 // 不是我们的 Intent，直接不碰
+            String op = b.getString(EX_OP);
+            String session = b.getString(EX_SESSION);
+            String token = b.getString(EX_TOKEN);
+            String cfg = b.getString(EX_CFG);
+            String origin = b.getString(EX_ORIGIN);
+            String route = b.getString(EX_ROUTE);
+            int run = b.getInt(EX_RUN, 0);
 
-            // 模块把 ResultReceiver 句柄放在 extras 里：拿到后引擎在状态切换完成时直接回调
             try {
-                android.os.Parcelable rr = it.getParcelableExtra("mokr_rr");
+                android.os.Parcelable rr = b.getParcelable("mokr_rr");
                 if (rr != null) MotionEngine.setAckReceiver(rr);
             } catch (Throwable t) {
                 XposedBridge.log(TAG + ": read result receiver failed " + t);
             }
-
             if (MotionEngine.OP_PREPARE.equals(op)) {
                 MotionEngine.prepareSession(session, cfg);
                 XposedBridge.log(TAG + ": config via Intent (" + from + ") op=prepare session="

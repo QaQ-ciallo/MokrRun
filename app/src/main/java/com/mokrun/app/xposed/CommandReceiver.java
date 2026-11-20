@@ -81,14 +81,16 @@ public final class CommandReceiver {
         @Override public void onReceive(Context context, Intent intent) {
             try {
                 if (intent == null) return;
-                // 模块 APK 里的类（ResultReceiver 子类）必须用模块 classloader 反序列化
+                // 用副本读回执句柄：不改写广播 Intent 的类加载器（同样的坑见 IntentBridge）
+                android.os.Bundle probe = null;
                 try {
-                    intent.setExtrasClassLoader(MotionEngine.class.getClassLoader());
-                } catch (Throwable ignored) {
-                }
-                try {
-                    android.os.Parcelable rr = intent.getParcelableExtra("mokr_rr");
-                    if (rr != null) MotionEngine.setAckReceiver(rr);
+                    android.os.Bundle raw = intent.getExtras();
+                    if (raw != null) {
+                        probe = new android.os.Bundle(raw);
+                        probe.setClassLoader(MotionEngine.class.getClassLoader());
+                        android.os.Parcelable rr = probe.getParcelable("mokr_rr");
+                        if (rr != null) MotionEngine.setAckReceiver(rr);
+                    }
                 } catch (Throwable t) {
                     XposedBridge.log(TAG + ": read result receiver failed " + t);
                 }
